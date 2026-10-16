@@ -78,6 +78,8 @@ body {
 .lp-marker-container {
   background: transparent !important;
   border: none !important;
+  overflow: visible !important;
+  box-shadow: none !important;
 }
 
 @keyframes marker-bounce {

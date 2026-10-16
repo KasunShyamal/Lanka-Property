@@ -68,8 +68,8 @@ export default function LocationPickerMap({
       const customIcon = L.divIcon({
         className: 'lp-marker-container',
         html: pinHtml,
-        iconSize: [110, 32],
-        iconAnchor: [55, 16],
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
       });
 
       const marker = L.marker([initialLat, initialLng], {
