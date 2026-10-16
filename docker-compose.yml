@@ -1,0 +1,95 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: lankaproperty-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-lankaproperty_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-lankaproperty_secret_pass}
+      POSTGRES_DB: ${DB_NAME:-lankaproperty_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-lankaproperty_admin} -d ${DB_NAME:-lankaproperty_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lankaproperty-network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: lankaproperty-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lankaproperty-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lankaproperty-api
+    restart: always
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-lankaproperty_admin}
+      DB_PASSWORD: ${DB_PASSWORD:-lankaproperty_secret_pass}
+      DB_NAME: ${DB_NAME:-lankaproperty_db}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-super_secure_lankaproperty_jwt_secret_key_2026_xyz}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - lankaproperty-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lankaproperty-web
+    restart: always
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+      NEXT_PUBLIC_WS_URL: http://localhost:4000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - lankaproperty-network
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  lankaproperty-network:
+    driver: bridge
