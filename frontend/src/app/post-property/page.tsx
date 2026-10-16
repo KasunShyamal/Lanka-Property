@@ -11,8 +11,69 @@ import {
   Repeat,
   DollarSign,
   ShieldCheck,
+  Home,
+  Sparkles,
+  Building,
+  Trees,
+  Landmark,
+  Tag,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import CustomSelect, { SelectOption } from '@/components/ui/CustomSelect';
+
+const PURPOSE_OPTIONS: SelectOption[] = [
+  { value: 'SALE', label: 'For Sale', icon: <Tag className="w-4 h-4 text-emerald-600" /> },
+  { value: 'RENT', label: 'For Rent / Lease', icon: <Tag className="w-4 h-4 text-sky-600" /> },
+];
+
+const PROPERTY_TYPE_OPTIONS: SelectOption[] = [
+  {
+    value: 'HOUSE',
+    label: 'Residential House',
+    icon: <Home className="w-4 h-4 text-emerald-600" />,
+    description: 'Detached or semi-detached family homes',
+  },
+  {
+    value: 'LUXURY_VILLA',
+    label: 'Luxury Villa',
+    icon: <Sparkles className="w-4 h-4 text-amber-500" />,
+    description: 'High-end villas with pool & grounds',
+  },
+  {
+    value: 'APARTMENT',
+    label: 'Apartment / Condominium',
+    icon: <Building className="w-4 h-4 text-sky-600" />,
+    description: 'High-rise residential and penthouses',
+  },
+  {
+    value: 'RESIDENTIAL_LAND',
+    label: 'Residential Land',
+    icon: <MapPin className="w-4 h-4 text-purple-600" />,
+    description: 'Plots & highland parcels ready for building',
+  },
+  {
+    value: 'COMMERCIAL',
+    label: 'Commercial Building',
+    icon: <Landmark className="w-4 h-4 text-indigo-600" />,
+    description: 'Office complexes, retail & showrooms',
+  },
+  {
+    value: 'AGRICULTURAL',
+    label: 'Agricultural Estate',
+    icon: <Trees className="w-4 h-4 text-green-700" />,
+    description: 'Tea, rubber, coconut & plantation estates',
+  },
+];
+
+const DISTRICT_OPTIONS: SelectOption[] = [
+  { value: 'Colombo', label: 'Colombo', badge: 'Western' },
+  { value: 'Gampaha', label: 'Gampaha', badge: 'Western' },
+  { value: 'Kalutara', label: 'Kalutara', badge: 'Western' },
+  { value: 'Kandy', label: 'Kandy', badge: 'Central' },
+  { value: 'Galle', label: 'Galle', badge: 'Southern' },
+  { value: 'Matara', label: 'Matara', badge: 'Southern' },
+  { value: 'Kurunegala', label: 'Kurunegala', badge: 'North Western' },
+];
 
 export default function PostPropertyPage() {
   const router = useRouter();
@@ -141,38 +202,24 @@ export default function PostPropertyPage() {
                 </div>
 
                 <div className="sm:col-span-4">
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                    Listing Purpose
-                  </label>
-                  <select
+                  <CustomSelect
+                    label="Listing Purpose"
                     value={formData.purpose}
-                    onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="SALE">For Sale</option>
-                    <option value="RENT">For Rent / Lease</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, purpose: val })}
+                    options={PURPOSE_OPTIONS}
+                  />
                 </div>
               </div>
 
               {/* Type & Price */}
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
                 <div className="sm:col-span-6">
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                    Property Category
-                  </label>
-                  <select
+                  <CustomSelect
+                    label="Property Category"
                     value={formData.property_type}
-                    onChange={(e) => setFormData({ ...formData, property_type: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="HOUSE">Residential House</option>
-                    <option value="LUXURY_VILLA">Luxury Villa</option>
-                    <option value="APARTMENT">Apartment / Condominium</option>
-                    <option value="RESIDENTIAL_LAND">Residential Land</option>
-                    <option value="COMMERCIAL">Commercial Building</option>
-                    <option value="AGRICULTURAL">Agricultural Estate</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, property_type: val })}
+                    options={PROPERTY_TYPE_OPTIONS}
+                  />
                 </div>
 
                 <div className="sm:col-span-6">
@@ -273,22 +320,12 @@ export default function PostPropertyPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                    District
-                  </label>
-                  <select
+                  <CustomSelect
+                    label="District"
                     value={formData.district}
-                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="Colombo">Colombo</option>
-                    <option value="Gampaha">Gampaha</option>
-                    <option value="Kalutara">Kalutara</option>
-                    <option value="Kandy">Kandy</option>
-                    <option value="Galle">Galle</option>
-                    <option value="Matara">Matara</option>
-                    <option value="Kurunegala">Kurunegala</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, district: val })}
+                    options={DISTRICT_OPTIONS}
+                  />
                 </div>
               </div>
 

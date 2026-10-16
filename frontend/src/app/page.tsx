@@ -15,8 +15,24 @@ import {
   Flame,
   Sparkles,
   TrendingUp,
+  Home,
+  Building,
+  Trees,
+  Landmark,
+  Layers,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import CustomSelect, { SelectOption } from '@/components/ui/CustomSelect';
+
+const SEARCH_PROPERTY_TYPES: SelectOption[] = [
+  { value: '', label: 'All Property Types', icon: <Layers className="w-4 h-4 text-slate-400" /> },
+  { value: 'LUXURY_VILLA', label: 'Luxury Villa', icon: <Sparkles className="w-4 h-4 text-amber-500" /> },
+  { value: 'HOUSE', label: 'Residential House', icon: <Home className="w-4 h-4 text-emerald-600" /> },
+  { value: 'APARTMENT', label: 'Apartment / Condominium', icon: <Building className="w-4 h-4 text-sky-600" /> },
+  { value: 'RESIDENTIAL_LAND', label: 'Residential Land', icon: <MapPin className="w-4 h-4 text-purple-600" /> },
+  { value: 'COMMERCIAL', label: 'Commercial Building', icon: <Landmark className="w-4 h-4 text-indigo-600" /> },
+  { value: 'AGRICULTURAL', label: 'Agricultural Estate', icon: <Trees className="w-4 h-4 text-green-700" /> },
+];
 
 export default function HomePage() {
   const [properties, setProperties] = useState<any[]>([]);
@@ -133,20 +149,12 @@ export default function HomePage() {
               </div>
 
               <div className="sm:col-span-4">
-                <select
+                <CustomSelect
                   value={propertyType}
-                  onChange={(e) => setPropertyType(e.target.value)}
-                  aria-label="Property Type"
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-700 focus:bg-white transition"
-                >
-                  <option value="">All Property Types</option>
-                  <option value="LUXURY_VILLA">Luxury Villa</option>
-                  <option value="HOUSE">Residential House</option>
-                  <option value="APARTMENT">Apartment / Condominium</option>
-                  <option value="RESIDENTIAL_LAND">Residential Land</option>
-                  <option value="COMMERCIAL">Commercial Building</option>
-                  <option value="AGRICULTURAL">Agricultural Estate</option>
-                </select>
+                  onChange={(val) => setPropertyType(val)}
+                  options={SEARCH_PROPERTY_TYPES}
+                  placeholder="All Property Types"
+                />
               </div>
 
               <div className="sm:col-span-3 flex gap-2">

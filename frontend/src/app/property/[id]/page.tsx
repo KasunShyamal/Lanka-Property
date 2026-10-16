@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 export default function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -456,21 +457,16 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
             ) : (
               <form onSubmit={handleExchangeSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">
-                    Select Your Property to Offer
-                  </label>
-                  <select
+                  <CustomSelect
+                    label="Select Your Property to Offer"
                     value={selectedOfferProp}
-                    onChange={(e) => setSelectedOfferProp(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    required
-                  >
-                    {userProperties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title} (LKR {(Number(p.price_lkr) / 1000000).toFixed(1)}M)
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setSelectedOfferProp(val)}
+                    options={userProperties.map((p) => ({
+                      value: p.id,
+                      label: `${p.title} (LKR ${(Number(p.price_lkr) / 1000000).toFixed(1)}M)`,
+                      description: `${p.city} • ${p.land_perches || 0} Perches`,
+                    }))}
+                  />
                 </div>
 
                 <div>
