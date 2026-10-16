@@ -101,7 +101,7 @@ export default function HomePage() {
           </div>
 
           {/* Search Box Card */}
-          <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-2xl text-slate-800 border border-slate-100 max-w-4xl mx-auto">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-2xl text-slate-800 border border-slate-100 max-w-4xl mx-auto relative z-30">
             {/* Purpose Tabs */}
             <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
               <button
@@ -136,7 +136,7 @@ export default function HomePage() {
             </div>
 
             {/* Inputs Form */}
-            <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+            <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-12 gap-3 relative z-30">
               <div className="sm:col-span-5 relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 <input

@@ -196,7 +196,7 @@ export default function PostPropertyPage() {
               )}
 
               {/* Title & Purpose */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 relative z-50">
                 <div className="sm:col-span-8">
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                     Property Title *
@@ -222,7 +222,7 @@ export default function PostPropertyPage() {
               </div>
 
               {/* Type & Price */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 relative z-40">
                 <div className="sm:col-span-6">
                   <CustomSelect
                     label="Property Category"
@@ -300,7 +300,7 @@ export default function PostPropertyPage() {
               </div>
 
               {/* Location details */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 relative z-30">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                     Street Address *
@@ -340,7 +340,7 @@ export default function PostPropertyPage() {
               </div>
 
               {/* Interactive Location & GPS Coordinate Map Picker */}
-              <div className="p-4 sm:p-5 bg-slate-50/80 rounded-2xl border border-slate-200">
+              <div className="p-4 sm:p-5 bg-slate-50/80 rounded-2xl border border-slate-200 relative z-10 isolate">
                 <LocationPickerMap
                   latitude={formData.latitude}
                   longitude={formData.longitude}

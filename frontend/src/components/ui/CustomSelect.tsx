@@ -33,6 +33,7 @@ export default function CustomSelect({
   disabled = false,
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
@@ -66,13 +67,30 @@ export default function CustomSelect({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
+  // Calculate if dropdown should open upward or downward based on viewport clearance
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      // If less than 240px space below and more space above, open upwards
+      if (spaceBelow < 240 && rect.top > 240) {
+        setOpenUpward(true);
+      } else {
+        setOpenUpward(false);
+      }
+    }
+  }, [isOpen]);
+
   const handleSelect = (val: string) => {
     onChange(val);
     setIsOpen(false);
   };
 
   return (
-    <div className={`relative ${className}`} ref={containerRef}>
+    <div
+      className={`relative ${isOpen ? 'z-[9999]' : 'z-20'} ${className}`}
+      ref={containerRef}
+    >
       {label && (
         <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
           {label}
@@ -118,11 +136,14 @@ export default function CustomSelect({
         />
       </button>
 
-      {/* Floating Dropdown Menu */}
+      {/* Floating Dropdown Menu (Solid Background, Highest Z-Index) */}
       {isOpen && (
         <div
           role="listbox"
-          className="absolute z-50 left-0 right-0 mt-1.5 max-h-64 overflow-y-auto bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-2xl p-1.5 divide-y divide-slate-100 animate-in fade-in-0 zoom-in-95 duration-150"
+          className={`absolute z-[99999] left-0 right-0 ${
+            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          } max-h-64 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-2xl p-1.5 divide-y divide-slate-100 animate-in fade-in-0 zoom-in-95 duration-150`}
+          style={{ boxShadow: '0 20px 40px -15px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05)' }}
         >
           <div className="space-y-0.5">
             {options.map((option) => {

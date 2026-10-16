@@ -163,8 +163,8 @@ export default function LocationPickerMap({
         ))}
       </div>
 
-      {/* Map Container */}
-      <div className="relative rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner h-64 sm:h-72 bg-slate-100">
+      {/* Map Container (Isolated Stacking Context so Leaflet cannot bleed over dropdowns) */}
+      <div className="relative isolate z-0 rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner h-64 sm:h-72 bg-slate-100">
         <div ref={mapContainerRef} className="w-full h-full" />
       </div>
 
