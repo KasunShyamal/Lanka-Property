@@ -2,19 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { MapPin, Bed, Bath, ArrowRight, Layers, Eye } from 'lucide-react';
+import { MapPin, Bed, Bath, ArrowRight, Layers, Maximize2, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 
 export default function MapExplorer() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const markersRef = useRef<{ [key: string]: any }>({});
 
+  const [isMapReady, setIsMapReady] = useState(false);
   const [properties, setProperties] = useState<any[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [cityFilter, setCityFilter] = useState('');
 
+  // 1. Fetch properties
   useEffect(() => {
     loadProperties();
   }, [cityFilter]);
@@ -23,9 +25,10 @@ export default function MapExplorer() {
     setLoading(true);
     try {
       const res = await api.getProperties({ city: cityFilter || undefined });
-      setProperties(res.items || []);
-      if (res.items && res.items.length > 0 && !selectedProperty) {
-        setSelectedProperty(res.items[0]);
+      const items = res.items || [];
+      setProperties(items);
+      if (items.length > 0 && !selectedProperty) {
+        setSelectedProperty(items[0]);
       }
     } catch (err) {
       console.error('Failed to load map properties', err);
@@ -34,6 +37,7 @@ export default function MapExplorer() {
     }
   };
 
+  // 2. Initialize Leaflet map
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -57,7 +61,15 @@ export default function MapExplorer() {
         maxZoom: 19,
       }).addTo(map);
 
+      // Trigger size invalidation to prevent grey tile gaps
+      setTimeout(() => {
+        if (map) map.invalidateSize();
+      }, 250);
+
       mapInstanceRef.current = map;
+      if (isMounted) {
+        setIsMapReady(true);
+      }
     }
 
     initLeafletMap();
@@ -67,73 +79,136 @@ export default function MapExplorer() {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        setIsMapReady(false);
       }
     };
   }, []);
 
-  // Update map markers when properties change
+  // 3. Render and update markers whenever properties, selectedProperty, or isMapReady change
   useEffect(() => {
-    if (!mapInstanceRef.current || typeof window === 'undefined') return;
+    if (!isMapReady || !mapInstanceRef.current || typeof window === 'undefined') return;
 
     import('leaflet').then((L) => {
       const map = mapInstanceRef.current;
 
       // Clear existing markers
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
+      Object.values(markersRef.current).forEach((m: any) => m.remove());
+      markersRef.current = {};
 
       const bounds: [number, number][] = [];
 
       properties.forEach((prop) => {
-        if (!prop.latitude || !prop.longitude) return;
+        const lat = Number(prop.latitude);
+        const lng = Number(prop.longitude);
+        if (isNaN(lat) || isNaN(lng)) return;
 
-        bounds.push([prop.latitude, prop.longitude]);
+        bounds.push([lat, lng]);
 
-        // Custom HTML Price Pin
+        const isSelected = selectedProperty?.id === prop.id;
         const priceLabel = `LKR ${(Number(prop.price_lkr) / 1000000).toFixed(1)}M`;
-        const customIcon = L.divIcon({
-          className: 'custom-map-pin',
-          html: `
+
+        // Highlighted vs Standard Pin styling
+        const html = isSelected
+          ? `
             <div style="
+              position: relative;
+              background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+              color: #ffffff;
+              padding: 6px 12px;
+              border-radius: 9999px;
+              font-size: 12px;
+              font-weight: 900;
+              border: 3px solid #ffffff;
+              box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.4), 0 8px 20px rgba(0,0,0,0.35);
+              white-space: nowrap;
+              cursor: pointer;
+              transform: translate(-50%, -100%) scale(1.15);
+              transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+              z-index: 9999;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            ">
+              <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#ffffff; animation: pulse 1s infinite;"></span>
+              <span>${priceLabel}</span>
+              <div style="
+                position: absolute;
+                bottom: -8px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 0;
+                height: 0;
+                border-left: 7px solid transparent;
+                border-right: 7px solid transparent;
+                border-top: 8px solid #059669;
+              "></div>
+            </div>
+          `
+          : `
+            <div style="
+              position: relative;
               background: #0B192C;
               color: #ffffff;
-              padding: 4px 8px;
+              padding: 4px 9px;
               border-radius: 8px;
               font-size: 11px;
               font-weight: 800;
               border: 2px solid #10B981;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+              box-shadow: 0 4px 12px rgba(0,0,0,0.25);
               white-space: nowrap;
               cursor: pointer;
-              transform: translate(-50%, -50%);
+              transform: translate(-50%, -100%);
+              transition: all 0.2s ease;
             ">
-              ${priceLabel}
+              <span>${priceLabel}</span>
+              <div style="
+                position: absolute;
+                bottom: -6px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 0;
+                height: 0;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid #0B192C;
+              "></div>
             </div>
-          `,
-          iconSize: [80, 30],
-          iconAnchor: [40, 15],
+          `;
+
+        const customIcon = L.divIcon({
+          className: 'lp-marker-container',
+          html,
+          iconSize: [80, 36],
+          iconAnchor: [40, 18],
         });
 
-        const marker = L.marker([prop.latitude, prop.longitude], { icon: customIcon }).addTo(map);
+        const marker = L.marker([lat, lng], {
+          icon: customIcon,
+          zIndexOffset: isSelected ? 1000 : 100,
+        }).addTo(map);
 
         marker.on('click', () => {
           setSelectedProperty(prop);
-          map.panTo([prop.latitude, prop.longitude], { animate: true });
+          map.panTo([lat, lng], { animate: true, duration: 0.6 });
         });
 
-        markersRef.current.push(marker);
+        markersRef.current[prop.id] = marker;
       });
 
-      if (bounds.length > 0) {
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+      // Fit bounds on first load if bounds exist
+      if (bounds.length > 0 && !selectedProperty) {
+        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 13 });
       }
     });
-  }, [properties]);
+  }, [properties, selectedProperty?.id, isMapReady]);
 
+  // When user clicks a property in the sidebar
   const handleSelectProperty = (prop: any) => {
     setSelectedProperty(prop);
-    if (mapInstanceRef.current && prop.latitude && prop.longitude) {
-      mapInstanceRef.current.panTo([prop.latitude, prop.longitude], { animate: true });
+    const lat = Number(prop.latitude);
+    const lng = Number(prop.longitude);
+    if (mapInstanceRef.current && !isNaN(lat) && !isNaN(lng)) {
+      mapInstanceRef.current.panTo([lat, lng], { animate: true, duration: 0.7 });
     }
   };
 
@@ -148,7 +223,7 @@ export default function MapExplorer() {
               <span>Sri Lanka Map Explorer</span>
             </h1>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-              {properties.length} Listings
+              {properties.length} Active Listings
             </span>
           </div>
 
@@ -175,51 +250,62 @@ export default function MapExplorer() {
           {loading ? (
             <div className="py-12 text-center text-slate-400 text-xs">
               <div className="inline-block w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mb-2" />
-              <p>Locating verified properties...</p>
+              <p>Locating verified properties on map...</p>
             </div>
           ) : properties.length === 0 ? (
-            <div className="py-8 text-center text-slate-400 text-xs">No listings found on map.</div>
+            <div className="py-8 text-center text-slate-400 text-xs">No listings found in this area.</div>
           ) : (
-            properties.map((prop) => (
-              <div
-                key={prop.id}
-                onClick={() => handleSelectProperty(prop)}
-                className={`p-3 rounded-xl cursor-pointer transition flex gap-3 ${
-                  selectedProperty?.id === prop.id
-                    ? 'bg-emerald-50/80 border border-emerald-300'
-                    : 'hover:bg-slate-50 border border-transparent'
-                }`}
-              >
-                <div className="w-24 h-20 rounded-lg bg-slate-200 overflow-hidden shrink-0 relative">
-                  <img
-                    src={prop.images?.[0] || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400'}
-                    alt={prop.title}
-                    className="w-full h-full object-cover"
-                  />
-                  {prop.is_exchange_eligible && (
-                    <span className="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-indigo-600 text-white text-[9px] font-bold">
-                      Swap
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-extrabold text-brand-dark">
-                    LKR {(Number(prop.price_lkr) / 1000000).toFixed(1)}M
+            properties.map((prop) => {
+              const isSelected = selectedProperty?.id === prop.id;
+              return (
+                <div
+                  key={prop.id}
+                  onClick={() => handleSelectProperty(prop)}
+                  className={`p-3 rounded-2xl cursor-pointer transition-all duration-200 flex gap-3 ${
+                    isSelected
+                      ? 'bg-emerald-50 border-2 border-emerald-500 shadow-md scale-[1.01]'
+                      : 'hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  <div className="w-24 h-20 rounded-xl bg-slate-200 overflow-hidden shrink-0 relative">
+                    <img
+                      src={prop.images?.[0] || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400'}
+                      alt={prop.title}
+                      className="w-full h-full object-cover"
+                    />
+                    {prop.is_exchange_eligible && (
+                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[9px] font-bold">
+                        Swap
+                      </span>
+                    )}
                   </div>
-                  {Number(prop.land_perches) > 0 && (
-                    <div className="text-[11px] text-emerald-700 font-semibold truncate">
-                      LKR {(Number(prop.price_per_perch) / 1000000).toFixed(2)}M / perch ({prop.land_perches}P)
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-black text-brand-dark">
+                        LKR {(Number(prop.price_lkr) / 1000000).toFixed(1)}M
+                      </div>
+                      {isSelected && (
+                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-600 text-white flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          Selected
+                        </span>
+                      )}
                     </div>
-                  )}
-                  <h4 className="text-xs font-semibold text-slate-800 truncate mt-0.5">{prop.title}</h4>
-                  <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-1 truncate">
-                    <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span>{prop.city}, {prop.district}</span>
-                  </p>
+                    {Number(prop.land_perches) > 0 && (
+                      <div className="text-[11px] text-emerald-700 font-semibold truncate">
+                        LKR {(Number(prop.price_per_perch) / 1000000).toFixed(2)}M / perch ({prop.land_perches}P)
+                      </div>
+                    )}
+                    <h4 className="text-xs font-semibold text-slate-800 truncate mt-0.5">{prop.title}</h4>
+                    <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-1 truncate">
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>{prop.city}, {prop.district}</span>
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -230,7 +316,7 @@ export default function MapExplorer() {
 
         {/* Floating Preview Card on Map */}
         {selectedProperty && (
-          <div className="absolute bottom-6 left-6 right-6 md:right-auto md:w-96 bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border border-slate-200 z-30 transition-all">
+          <div className="absolute bottom-6 left-6 right-6 md:right-auto md:w-96 bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border-2 border-emerald-500 z-30 transition-all animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
             <div className="flex gap-3">
               <div className="w-24 h-24 rounded-xl bg-slate-100 overflow-hidden shrink-0 relative">
                 <img
@@ -238,12 +324,20 @@ export default function MapExplorer() {
                   alt={selectedProperty.title}
                   className="w-full h-full object-cover"
                 />
+                <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-brand-dark/90 text-white text-[9px] font-bold">
+                  {selectedProperty.city}
+                </span>
               </div>
 
               <div className="flex-1 min-w-0 flex flex-col justify-between">
                 <div>
-                  <div className="text-base font-black text-brand-dark tracking-tight">
-                    LKR {(Number(selectedProperty.price_lkr) / 1000000).toFixed(1)}M
+                  <div className="flex items-center justify-between">
+                    <div className="text-base font-black text-brand-dark tracking-tight">
+                      LKR {(Number(selectedProperty.price_lkr) / 1000000).toFixed(1)}M
+                    </div>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                      Highlighted Pin
+                    </span>
                   </div>
                   {Number(selectedProperty.land_perches) > 0 && (
                     <div className="text-[11px] text-emerald-700 font-semibold">
@@ -266,9 +360,9 @@ export default function MapExplorer() {
 
                   <Link
                     href={`/property/${selectedProperty.id}`}
-                    className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg transition flex items-center gap-1 shadow-sm"
+                    className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1 shadow-sm active:scale-95"
                   >
-                    <span>View</span>
+                    <span>View Property</span>
                     <ArrowRight className="w-3 h-3" />
                   </Link>
                 </div>

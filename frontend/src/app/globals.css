@@ -73,3 +73,23 @@ body {
 .pulse-red {
   animation: pulse-red 1.5s infinite;
 }
+
+/* Reset Leaflet div icon wrapper */
+.lp-marker-container {
+  background: transparent !important;
+  border: none !important;
+}
+
+@keyframes marker-bounce {
+  0%, 100% {
+    transform: translateY(0) scale(1.08);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.08);
+  }
+}
+
+.marker-highlighted {
+  animation: marker-bounce 1.5s ease-in-out infinite;
+  z-index: 9999 !important;
+}

@@ -20,6 +20,16 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import CustomSelect, { SelectOption } from '@/components/ui/CustomSelect';
+import dynamic from 'next/dynamic';
+
+const LocationPickerMap = dynamic(() => import('@/components/LocationPickerMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-64 rounded-2xl bg-slate-100 flex items-center justify-center text-xs text-slate-400 font-semibold border-2 border-slate-200">
+      Loading interactive GPS coordinate map picker...
+    </div>
+  ),
+});
 
 const PURPOSE_OPTIONS: SelectOption[] = [
   { value: 'SALE', label: 'For Sale', icon: <Tag className="w-4 h-4 text-emerald-600" /> },
@@ -327,6 +337,15 @@ export default function PostPropertyPage() {
                     options={DISTRICT_OPTIONS}
                   />
                 </div>
+              </div>
+
+              {/* Interactive Location & GPS Coordinate Map Picker */}
+              <div className="p-4 sm:p-5 bg-slate-50/80 rounded-2xl border border-slate-200">
+                <LocationPickerMap
+                  latitude={formData.latitude}
+                  longitude={formData.longitude}
+                  onChange={({ lat, lng }) => setFormData({ ...formData, latitude: lat, longitude: lng })}
+                />
               </div>
 
               {/* Photos URL */}
