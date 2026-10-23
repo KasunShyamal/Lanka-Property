@@ -1,7 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import Link from 'next/link';
-import { Home, MapPin, Gavel, Calendar, Repeat, PlusCircle, ShieldCheck, User } from 'lucide-react';
+import Script from 'next/script';
+import { Home } from 'lucide-react';
+import { AuthProvider } from '@/context/AuthContext';
+import Navbar from '@/components/layout/Navbar';
+import AuthModal from '@/components/auth/AuthModal';
 
 export const metadata: Metadata = {
   title: 'LankaProperty — Sri Lanka Premier Real Estate & Digital Auctions',
@@ -17,96 +21,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
-        {/* Top Notification Banner */}
-        <div className="bg-brand-dark text-slate-300 text-xs py-1.5 px-4 text-center border-b border-slate-800 flex items-center justify-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-          <span>Live Digital Auctions Active: Cinnamon Gardens 4BR Villa bidding is now open!</span>
-          <Link href="/auctions" className="underline font-semibold text-emerald-400 hover:text-emerald-300 ml-1">
-            Enter Auction Room &rarr;
-          </Link>
-        </div>
+        <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
+        <AuthProvider>
+          {/* Dynamic Interactive Navbar */}
+          <Navbar />
 
-        {/* Main Navbar */}
-        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-dark via-brand-navy to-brand-primary flex items-center justify-center text-white shadow-md">
-                <Home className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div>
-                <span className="text-xl font-extrabold tracking-tight text-brand-dark">
-                  Lanka<span className="text-emerald-600">Property</span>
-                </span>
-                <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-semibold -mt-1">
-                  Sri Lanka Real Estate
-                </span>
-              </div>
-            </Link>
+          {/* Global Auth Modal for Sign in, Register, Google OAuth */}
+          <AuthModal />
 
-            {/* Nav Links */}
-            <nav className="hidden md:flex items-center gap-1 lg:gap-2">
-              <Link
-                href="/"
-                className="px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-emerald-600 hover:bg-slate-100 rounded-lg transition"
-              >
-                Buy & Rent
-              </Link>
-              <Link
-                href="/map"
-                className="px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-emerald-600 hover:bg-slate-100 rounded-lg transition flex items-center gap-1.5"
-              >
-                <MapPin className="w-4 h-4 text-emerald-600" />
-                Map View
-              </Link>
-              <Link
-                href="/auctions"
-                className="px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-emerald-600 hover:bg-slate-100 rounded-lg transition flex items-center gap-1.5"
-              >
-                <Gavel className="w-4 h-4 text-amber-500" />
-                Auctions
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                  LIVE
-                </span>
-              </Link>
-              <Link
-                href="/inspections"
-                className="px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-emerald-600 hover:bg-slate-100 rounded-lg transition flex items-center gap-1.5"
-              >
-                <Calendar className="w-4 h-4 text-sky-600" />
-                Inspections
-              </Link>
-              <Link
-                href="/exchanges"
-                className="px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-emerald-600 hover:bg-slate-100 rounded-lg transition flex items-center gap-1.5"
-              >
-                <Repeat className="w-4 h-4 text-indigo-600" />
-                Exchanges
-              </Link>
-              <Link
-                href="/admin"
-                className="px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-emerald-600 hover:bg-slate-100 rounded-lg transition flex items-center gap-1.5"
-              >
-                <ShieldCheck className="w-4 h-4 text-purple-600" />
-                Admin
-              </Link>
-            </nav>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-3">
-              <Link
-                href="/post-property"
-                className="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-sm transition active:scale-95"
-              >
-                <PlusCircle className="w-4 h-4" />
-                Post Property
-              </Link>
-            </div>
-          </div>
-        </header>
-
-        {/* Page Content */}
-        <main className="flex-1">{children}</main>
+          {/* Page Content */}
+          <main className="flex-1">{children}</main>
 
         {/* Footer */}
         <footer className="bg-brand-dark text-slate-400 text-sm mt-16 border-t border-slate-800">
@@ -165,6 +89,7 @@ export default function RootLayout({
             </div>
           </div>
         </footer>
+        </AuthProvider>
       </body>
     </html>
   );

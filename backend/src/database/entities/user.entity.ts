@@ -63,6 +63,7 @@ export class User {
   inspections_requested: Inspection[];
 
   @CreateDateColumn()
+  
   created_at: Date;
 
   @UpdateDateColumn()

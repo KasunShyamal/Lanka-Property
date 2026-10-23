@@ -85,6 +85,75 @@ export class AuthService {
         kyc_status: user.kyc_status,
         is_verified_agent: user.is_verified_agent,
         agency_name: user.agency_name,
+        avatar_url: user.avatar_url,
+      },
+      token,
+    };
+  }
+
+  async googleLogin(dto: {
+    email?: string;
+    full_name?: string;
+    avatar_url?: string;
+    credential?: string;
+    role?: UserRole;
+    agency_name?: string;
+  }) {
+    let email = dto.email;
+    let full_name = dto.full_name;
+    let avatar_url = dto.avatar_url;
+
+    // Decode Google Identity Services ID token if provided
+    if (dto.credential) {
+      try {
+        const parts = dto.credential.split('.');
+        if (parts.length === 3) {
+          const decoded = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
+          if (decoded.email) email = decoded.email;
+          if (decoded.name) full_name = decoded.name;
+          if (decoded.picture) avatar_url = decoded.picture;
+        }
+      } catch (err) {
+        console.error('Failed to decode Google credential:', err);
+      }
+    }
+
+    if (!email) {
+      throw new UnauthorizedException('Missing valid Google account email');
+    }
+
+    let user = await this.userRepo.findOne({ where: { email: email.toLowerCase() } });
+    if (!user) {
+      const salt = await bcrypt.genSalt(10);
+      const password_hash = await bcrypt.hash(Math.random().toString(36) + 'GoogleAuth#2026', salt);
+      user = this.userRepo.create({
+        email: email.toLowerCase(),
+        password_hash,
+        full_name: full_name || 'Google User',
+        avatar_url: avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200',
+        role: dto.role || UserRole.BUYER,
+        agency_name: dto.role === UserRole.AGENT ? dto.agency_name : undefined,
+        kyc_status: KycStatus.VERIFIED,
+        is_verified_agent: false,
+      });
+      user = await this.userRepo.save(user);
+    } else if (dto.role && user.role !== dto.role && user.role !== UserRole.SUPER_ADMIN) {
+      user.role = dto.role;
+      if (dto.agency_name) user.agency_name = dto.agency_name;
+      user = await this.userRepo.save(user);
+    }
+
+    const token = this.generateToken(user);
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        kyc_status: user.kyc_status,
+        is_verified_agent: user.is_verified_agent,
+        agency_name: user.agency_name,
+        avatar_url: user.avatar_url,
       },
       token,
     };

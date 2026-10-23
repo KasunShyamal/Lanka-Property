@@ -17,8 +17,10 @@ import {
   Trees,
   Landmark,
   Tag,
+  Lock,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 import CustomSelect, { SelectOption } from '@/components/ui/CustomSelect';
 import dynamic from 'next/dynamic';
 
@@ -87,6 +89,7 @@ const DISTRICT_OPTIONS: SelectOption[] = [
 
 export default function PostPropertyPage() {
   const router = useRouter();
+  const { user, isLoggedIn, isLoading: authLoading, openAuthModal } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,18 +117,14 @@ export default function PostPropertyPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isLoggedIn) {
+      openAuthModal('login', 'Please log in to publish your property listing.');
+      return;
+    }
     setLoading(true);
     setError(null);
 
     try {
-      if (!localStorage.getItem('lp_token')) {
-        const loginRes = await api.login({
-          email: 'malik.fernando@gmail.com',
-          password: 'Admin@12345',
-        });
-        localStorage.setItem('lp_token', loginRes.token);
-      }
-
       await api.createProperty({
         title: formData.title,
         purpose: formData.purpose,
@@ -158,6 +157,35 @@ export default function PostPropertyPage() {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="max-w-md mx-auto my-20 p-8 bg-white rounded-3xl border border-slate-200 shadow-xl text-center">
+        <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center mb-4 border border-emerald-100 shadow-inner">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Sign In Required to Post Property</h2>
+        <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+          To maintain verified quality and protect buyers, all property sellers and agents must sign in before publishing listings on LankaProperty.
+        </p>
+        <button
+          onClick={() => openAuthModal('login', 'Please sign in to publish your property listing.')}
+          className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+        >
+          <PlusCircle className="w-4 h-4" />
+          <span>Sign In to Post Property</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">

@@ -28,6 +28,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
 export const api = {
   // Auth
   login: (data: any) => fetchApi('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  googleLogin: (data: any) => fetchApi('/auth/google', { method: 'POST', body: JSON.stringify(data) }),
   register: (data: any) => fetchApi('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   getMe: () => fetchApi('/auth/me'),
 

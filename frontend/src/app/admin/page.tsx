@@ -13,10 +13,13 @@ import {
   AlertCircle,
   Building,
   ArrowRight,
+  Lock,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function AdminPage() {
+  const { user, isAdmin, isLoading: authLoading, openAuthModal } = useAuth();
   const [stats, setStats] = useState<any | null>(null);
   const [pendingProperties, setPendingProperties] = useState<any[]>([]);
   const [pendingAuctions, setPendingAuctions] = useState<any[]>([]);
@@ -24,21 +27,16 @@ export default function AdminPage() {
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    loadAdminData();
-  }, []);
+    if (isAdmin) {
+      loadAdminData();
+    } else {
+      setLoading(false);
+    }
+  }, [isAdmin]);
 
   const loadAdminData = async () => {
     setLoading(true);
     try {
-      // Ensure admin authentication
-      if (!localStorage.getItem('lp_token')) {
-        const loginRes = await api.login({
-          email: 'admin@lankaproperty.lk',
-          password: 'Admin@12345',
-        });
-        localStorage.setItem('lp_token', loginRes.token);
-      }
-
       const [statsRes, propsRes, auctionsRes] = await Promise.all([
         api.getAdminStats(),
         api.getPendingProperties(),
@@ -87,6 +85,35 @@ export default function AdminPage() {
       alert(err.message || 'Auction approval failed');
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="max-w-md mx-auto my-20 p-8 bg-white rounded-3xl border border-slate-200 shadow-xl text-center">
+        <div className="w-16 h-16 rounded-2xl bg-purple-50 text-purple-600 mx-auto flex items-center justify-center mb-4 border border-purple-100 shadow-inner">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Admin Authentication Required</h2>
+        <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+          Access to the LankaProperty Moderation Console is restricted to authorized platform administrators and governance moderators.
+        </p>
+        <button
+          onClick={() => openAuthModal('login', 'Please authenticate with an Administrator account.')}
+          className="w-full py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-sm shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>Authenticate as Admin</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

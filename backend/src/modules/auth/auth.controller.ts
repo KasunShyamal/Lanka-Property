@@ -22,6 +22,13 @@ export class AuthController {
     return this.authService.login(body);
   }
 
+  @Post('google')
+  @ApiOperation({ summary: 'Sign in or register with Google OAuth credentials' })
+  @ApiResponse({ status: 200, description: 'Successfully authenticated with Google' })
+  async googleLogin(@Body() body: any) {
+    return this.authService.googleLogin(body);
+  }
+
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
