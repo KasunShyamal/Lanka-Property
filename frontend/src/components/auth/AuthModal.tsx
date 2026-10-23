@@ -54,9 +54,27 @@ export default function AuthModal() {
   const [showClientIdConfig, setShowClientIdConfig] = useState(false);
 
   const [isGooglePopupOpen, setIsGooglePopupOpen] = useState(false);
-  const [customGoogleEmail, setCustomGoogleEmail] = useState('kshyamal48@gmail.com');
-  const [customGoogleName, setCustomGoogleName] = useState('Kasun Shyamal');
+  const [customGoogleEmail, setCustomGoogleEmail] = useState('');
+  const [customGoogleName, setCustomGoogleName] = useState('');
   const [isAddingNewGoogleAccount, setIsAddingNewGoogleAccount] = useState(false);
+  const [savedGoogleUser, setSavedGoogleUser] = useState<{ email: string; name: string } | null>(null);
+
+  // Load previously used Google account ONLY from this specific browser
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('lp_saved_google_user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.email) {
+            setSavedGoogleUser(parsed);
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, []);
 
   // Keep activeTab in sync with modal tab requested
   useEffect(() => {
@@ -93,16 +111,27 @@ export default function AuthModal() {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(accountName || accountEmail)}&backgroundColor=059669`;
+      const trimmedEmail = accountEmail.trim().toLowerCase();
+      const trimmedName = accountName.trim() || trimmedEmail.split('@')[0];
+      const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(trimmedName)}&backgroundColor=059669`;
+
       const res = await loginWithGoogle({
-        email: accountEmail.trim().toLowerCase(),
-        full_name: accountName.trim() || 'Google User',
+        email: trimmedEmail,
+        full_name: trimmedName,
         avatar_url: avatarUrl,
         role,
         agency_name: role === 'AGENT' ? agencyName : undefined,
       });
 
       if (res.success) {
+        // Remember only on this visitor's browser for 1-click convenience
+        if (typeof window !== 'undefined') {
+          try {
+            const userObj = { email: trimmedEmail, name: trimmedName };
+            localStorage.setItem('lp_saved_google_user', JSON.stringify(userObj));
+            setSavedGoogleUser(userObj);
+          } catch (e) {}
+        }
         setIsGooglePopupOpen(false);
         closeAuthModal();
       } else {
@@ -681,47 +710,62 @@ export default function AuthModal() {
               </div>
             )}
 
-            {/* Account List */}
+            {/* Account Selection or Input Form */}
             <div className="space-y-2 border-y border-slate-100 py-3">
-              {/* Account 1: Kasun Shyamal (Detected Active Chrome Session) */}
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => handleGoogleAccountSelect('kshyamal48@gmail.com', 'Kasun Shyamal')}
-                className="w-full flex items-center justify-between p-2.5 rounded-2xl hover:bg-emerald-50/60 border border-transparent hover:border-emerald-200 transition text-left group"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-emerald-500/20 flex-shrink-0">
-                    K
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-700">
-                      Kasun Shyamal
+              {/* If this user previously signed in on THIS specific device, show their own 1-click card */}
+              {savedGoogleUser && !isAddingNewGoogleAccount ? (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => handleGoogleAccountSelect(savedGoogleUser.email, savedGoogleUser.name)}
+                    className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-emerald-50/60 border border-slate-200 transition text-left group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-emerald-500/20 flex-shrink-0">
+                        {savedGoogleUser.name?.[0]?.toUpperCase() || 'G'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-700">
+                          {savedGoogleUser.name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate">{savedGoogleUser.email}</div>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-slate-500 truncate">kshyamal48@gmail.com</div>
-                  </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition flex-shrink-0" />
-              </button>
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition flex-shrink-0" />
+                  </button>
 
-              {/* Option 2: Enter Any Google Email */}
-              {!isAddingNewGoogleAccount ? (
-                <button
-                  type="button"
-                  onClick={() => setIsAddingNewGoogleAccount(true)}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-2xl hover:bg-slate-50 border border-transparent hover:border-slate-200 text-left transition text-slate-600 hover:text-slate-900 group"
-                >
-                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800 transition flex-shrink-0">
-                    <User className="w-4 h-4" />
-                  </div>
-                  <div className="text-xs font-medium">Use another Google account</div>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingNewGoogleAccount(true);
+                      setCustomGoogleEmail('');
+                      setCustomGoogleName('');
+                    }}
+                    className="w-full flex items-center gap-2 p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 text-xs font-medium transition"
+                  >
+                    <User className="w-4 h-4 text-slate-400" />
+                    <span>Use another Google account</span>
+                  </button>
+                </div>
               ) : (
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5 animate-in fade-in">
-                  <div className="text-xs font-bold text-slate-800">Enter Google Account:</div>
+                /* For any new visitor (like your friend) or when entering another account */
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (customGoogleEmail) {
+                      handleGoogleAccountSelect(customGoogleEmail, customGoogleName);
+                    }
+                  }}
+                  className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5 animate-in fade-in"
+                >
+                  <div className="text-xs font-bold text-slate-800">
+                    Enter your Google Account:
+                  </div>
+
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
-                      Email Address *
+                      Google Email Address *
                     </label>
                     <input
                       type="email"
@@ -732,36 +776,39 @@ export default function AuthModal() {
                       className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
+
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
                       Full Name
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Kasun Shyamal"
+                      placeholder="e.g. Jane Doe"
                       value={customGoogleName}
                       onChange={(e) => setCustomGoogleName(e.target.value)}
                       className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
+
                   <div className="flex items-center gap-2 pt-1">
                     <button
-                      type="button"
+                      type="submit"
                       disabled={isLoading || !customGoogleEmail}
-                      onClick={() => handleGoogleAccountSelect(customGoogleEmail, customGoogleName)}
-                      className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition disabled:opacity-50"
+                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition disabled:opacity-50"
                     >
-                      {isLoading ? 'Signing in...' : `Continue as ${role}`}
+                      {isLoading ? 'Signing in...' : `Continue with Google as ${role}`}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingNewGoogleAccount(false)}
-                      className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold transition"
-                    >
-                      Cancel
-                    </button>
+                    {savedGoogleUser && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingNewGoogleAccount(false)}
+                        className="px-2.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold transition"
+                      >
+                        Cancel
+                      </button>
+                    )}
                   </div>
-                </div>
+                </form>
               )}
             </div>
 
