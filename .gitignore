@@ -147,3 +147,8 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Requirements and Design Mockups
+BRD.md
+LankaProperty_BRD_and_Architecture_Document.md
+Mockups/
