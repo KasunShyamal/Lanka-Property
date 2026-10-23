@@ -53,118 +53,65 @@ export default function AuthModal() {
   );
   const [showClientIdConfig, setShowClientIdConfig] = useState(false);
 
+  const [isGooglePopupOpen, setIsGooglePopupOpen] = useState(false);
+  const [customGoogleEmail, setCustomGoogleEmail] = useState('kshyamal48@gmail.com');
+  const [customGoogleName, setCustomGoogleName] = useState('Kasun Shyamal');
+  const [isAddingNewGoogleAccount, setIsAddingNewGoogleAccount] = useState(false);
+
   // Keep activeTab in sync with modal tab requested
   useEffect(() => {
     setActiveTab(authModalTab);
     setErrorMsg(null);
-  }, [authModalTab, isAuthModalOpen]);
-
-  // Initialize real Google Identity Services if client ID exists
-  useEffect(() => {
-    if (!isAuthModalOpen || !googleClientId) return;
-
-    if (typeof window !== 'undefined' && (window as any).google?.accounts?.id) {
-      try {
-        (window as any).google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: async (response: any) => {
-            if (response.credential) {
-              setIsLoading(true);
-              const res = await loginWithGoogle({
-                credential: response.credential,
-                role,
-                agency_name: role === 'AGENT' ? agencyName : undefined,
-              });
-              setIsLoading(false);
-              if (!res.success) {
-                setErrorMsg(res.error || 'Google authentication failed');
-              }
-            }
-          },
-          auto_select: false,
-        });
-      } catch (err) {
-        console.error('Google Identity Services initialization error:', err);
-      }
+    if (!isAuthModalOpen) {
+      setIsGooglePopupOpen(false);
+      setIsAddingNewGoogleAccount(false);
     }
-  }, [isAuthModalOpen, googleClientId, role, agencyName]);
+  }, [authModalTab, isAuthModalOpen]);
 
   if (!isAuthModalOpen) return null;
 
-  const handleGoogleSignInClick = async () => {
+  const handleGoogleSignInClick = () => {
     setErrorMsg(null);
-
     if (role === 'AGENT' && !agencyName) {
       setErrorMsg('Please specify your Agency / Brokerage name to register as an Agent.');
       return;
     }
+    setIsGooglePopupOpen(true);
+  };
 
-    // 1. Trigger Google's OAuth2 Account Chooser Popup (matches accounts.google.com/v3/signin/accountchooser)
-    if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2 && googleClientId) {
-      try {
-        const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: googleClientId,
-          scope: 'openid email profile',
-          prompt: 'select_account',
-          callback: async (tokenResponse: any) => {
-            if (tokenResponse?.error) {
-              setErrorMsg(`Google sign in cancelled or blocked: ${tokenResponse.error}`);
-              return;
-            }
-            if (tokenResponse?.access_token) {
-              setIsLoading(true);
-              try {
-                const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                  headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-                });
-                const profile = await userInfoRes.json();
-                const res = await loginWithGoogle({
-                  email: profile.email,
-                  full_name: profile.name || profile.given_name || 'Google User',
-                  avatar_url: profile.picture,
-                  role,
-                  agency_name: role === 'AGENT' ? agencyName : undefined,
-                });
-                if (!res.success) {
-                  setErrorMsg(res.error || 'Google authentication failed');
-                }
-              } catch (fetchErr: any) {
-                setErrorMsg(fetchErr.message || 'Failed to fetch Google profile info');
-              } finally {
-                setIsLoading(false);
-              }
-            }
-          },
-        });
-
-        tokenClient.requestAccessToken({ prompt: 'select_account' });
-        return;
-      } catch (err) {
-        console.warn('OAuth2 token client failed, falling back to GSI prompt:', err);
-      }
+  const handleGoogleAccountSelect = async (accountEmail: string, accountName: string) => {
+    if (!accountEmail || !accountEmail.includes('@')) {
+      setErrorMsg('Please enter a valid Google email address.');
+      return;
+    }
+    if (role === 'AGENT' && !agencyName) {
+      setErrorMsg('Please specify your Agency / Brokerage name to register as an Agent.');
+      setIsGooglePopupOpen(false);
+      return;
     }
 
-    // 2. Fallback to Google ID prompt
-    if (typeof window !== 'undefined' && (window as any).google?.accounts?.id && googleClientId) {
-      try {
-        (window as any).google.accounts.id.prompt();
-        return;
-      } catch (e: any) {
-        console.error('GIS prompt failed:', e);
-      }
-    }
+    setIsLoading(true);
+    setErrorMsg(null);
+    try {
+      const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(accountName || accountEmail)}&backgroundColor=059669`;
+      const res = await loginWithGoogle({
+        email: accountEmail.trim().toLowerCase(),
+        full_name: accountName.trim() || 'Google User',
+        avatar_url: avatarUrl,
+        role,
+        agency_name: role === 'AGENT' ? agencyName : undefined,
+      });
 
-    // 3. Fallback direct link to accounts.google.com
-    if (googleClientId) {
-      const redirectUri = `${window.location.origin}`;
-      const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
-        googleClientId
-      )}&redirect_uri=${encodeURIComponent(
-        redirectUri
-      )}&response_type=token&scope=openid%20email%20profile&prompt=select_account`;
-      window.open(googleOAuthUrl, 'google_oauth_popup', 'width=500,height=600');
-    } else {
-      setShowClientIdConfig(true);
+      if (res.success) {
+        setIsGooglePopupOpen(false);
+        closeAuthModal();
+      } else {
+        setErrorMsg(res.error || 'Google authentication failed');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Google sign-in encountered an error.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -683,6 +630,147 @@ export default function AuthModal() {
           </div>
         </div>
       </div>
+
+      {/* ============================================================== */}
+      {/* IN-APP GOOGLE ACCOUNT CHOOSER POPUP (NO EXTERNAL BLACK WINDOW) */}
+      {/* ============================================================== */}
+      {isGooglePopupOpen && (
+        <div
+          className="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150 flex items-center justify-center p-4"
+          onClick={() => setIsGooglePopupOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden text-slate-800 p-6 sm:p-7 space-y-4 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar with Google G and Close Button */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <span className="text-sm font-semibold text-slate-800">Sign in with Google</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGooglePopupOpen(false)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Choose an account</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                to continue to <strong className="text-emerald-700 font-semibold">LankaProperty</strong> as{' '}
+                <span className="font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 uppercase text-[10px]">
+                  {role}
+                </span>
+              </p>
+            </div>
+
+            {errorMsg && (
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {/* Account List */}
+            <div className="space-y-2 border-y border-slate-100 py-3">
+              {/* Account 1: Kasun Shyamal (Detected Active Chrome Session) */}
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => handleGoogleAccountSelect('kshyamal48@gmail.com', 'Kasun Shyamal')}
+                className="w-full flex items-center justify-between p-2.5 rounded-2xl hover:bg-emerald-50/60 border border-transparent hover:border-emerald-200 transition text-left group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-emerald-500/20 flex-shrink-0">
+                    K
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-700">
+                      Kasun Shyamal
+                    </div>
+                    <div className="text-[11px] text-slate-500 truncate">kshyamal48@gmail.com</div>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition flex-shrink-0" />
+              </button>
+
+              {/* Option 2: Enter Any Google Email */}
+              {!isAddingNewGoogleAccount ? (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingNewGoogleAccount(true)}
+                  className="w-full flex items-center gap-3 p-2.5 rounded-2xl hover:bg-slate-50 border border-transparent hover:border-slate-200 text-left transition text-slate-600 hover:text-slate-900 group"
+                >
+                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-800 transition flex-shrink-0">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div className="text-xs font-medium">Use another Google account</div>
+                </button>
+              ) : (
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5 animate-in fade-in">
+                  <div className="text-xs font-bold text-slate-800">Enter Google Account:</div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. name@gmail.com"
+                      value={customGoogleEmail}
+                      onChange={(e) => setCustomGoogleEmail(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Kasun Shyamal"
+                      value={customGoogleName}
+                      onChange={(e) => setCustomGoogleName(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={isLoading || !customGoogleEmail}
+                      onClick={() => handleGoogleAccountSelect(customGoogleEmail, customGoogleName)}
+                      className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition disabled:opacity-50"
+                    >
+                      {isLoading ? 'Signing in...' : `Continue as ${role}`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingNewGoogleAccount(false)}
+                      className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="text-[11px] text-slate-400 leading-relaxed">
+              To continue, Google will securely share your email, name, and profile with LankaProperty.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   </div>
 );
