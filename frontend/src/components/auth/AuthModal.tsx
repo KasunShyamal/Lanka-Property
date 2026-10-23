@@ -88,12 +88,56 @@ export default function AuthModal() {
 
   if (!isAuthModalOpen) return null;
 
-  const handleGoogleSignInClick = () => {
+  const handleGoogleSignInClick = async () => {
     setErrorMsg(null);
     if (role === 'AGENT' && !agencyName) {
       setErrorMsg('Please specify your Agency / Brokerage name to register as an Agent.');
       return;
     }
+
+    // 1. Automatically trigger Google's native Browser Account Picker
+    if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2 && googleClientId) {
+      try {
+        const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
+          client_id: googleClientId,
+          scope: 'openid email profile',
+          prompt: 'select_account',
+          callback: async (tokenResponse: any) => {
+            if (tokenResponse?.error) {
+              console.warn('Google OAuth popup response error:', tokenResponse.error);
+              setIsGooglePopupOpen(true);
+              return;
+            }
+            if (tokenResponse?.access_token) {
+              setIsLoading(true);
+              try {
+                const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                  headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+                });
+                const profile = await userInfoRes.json();
+                if (profile?.email) {
+                  await handleGoogleAccountSelect(profile.email, profile.name || profile.given_name || 'Google User');
+                } else {
+                  setIsGooglePopupOpen(true);
+                }
+              } catch (fetchErr: any) {
+                console.error('Failed to fetch Google profile:', fetchErr);
+                setIsGooglePopupOpen(true);
+              } finally {
+                setIsLoading(false);
+              }
+            }
+          },
+        });
+
+        tokenClient.requestAccessToken({ prompt: 'select_account' });
+        return;
+      } catch (err) {
+        console.warn('OAuth token client failed, falling back to in-app chooser:', err);
+      }
+    }
+
+    // 2. Fallback to in-app account prompt if Google client is not loaded or origin mismatch
     setIsGooglePopupOpen(true);
   };
 
