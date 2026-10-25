@@ -88,7 +88,7 @@ export default function CustomSelect({
 
   return (
     <div
-      className={`relative ${isOpen ? 'z-[9999]' : 'z-20'} ${className}`}
+      className={`relative ${isOpen ? 'z-30' : 'z-0'} ${className}`}
       ref={containerRef}
     >
       {label && (

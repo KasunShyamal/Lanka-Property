@@ -86,7 +86,7 @@ export default function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 transition-all duration-300">
+    <header className="sticky top-0 z-40 transition-all duration-300">
       {/* Top Ambient Ticker Bar */}
       <div className="bg-gradient-to-r from-slate-950 via-brand-dark to-slate-950 text-slate-300 text-[11px] py-1.5 px-4 border-b border-white/10 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
