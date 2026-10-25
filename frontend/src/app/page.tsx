@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Search,
   MapPin,
@@ -35,6 +36,7 @@ const SEARCH_PROPERTY_TYPES: SelectOption[] = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
   const [properties, setProperties] = useState<any[]>([]);
   const [auctions, setAuctions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -315,7 +317,8 @@ export default function HomePage() {
             {properties.map((property) => (
               <div
                 key={property.id}
-                className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
+                onClick={() => router.push(`/property/${property.id}`)}
+                className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group cursor-pointer"
               >
                 {/* Image Container */}
                 <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden">
@@ -422,6 +425,7 @@ export default function HomePage() {
 
                     <Link
                       href={`/property/${property.id}`}
+                      onClick={(e) => e.stopPropagation()}
                       className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition flex items-center gap-1"
                     >
                       <span>View Details</span>

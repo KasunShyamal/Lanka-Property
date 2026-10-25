@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import L from 'leaflet';
 import {
   MapPin,
@@ -15,6 +16,7 @@ import {
 import { api, PropertyCategoryItem } from '@/lib/api';
 
 export default function MapExplorer() {
+  const router = useRouter();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [layerGroup, setLayerGroup] = useState<L.LayerGroup | null>(null);
@@ -736,7 +738,10 @@ export default function MapExplorer() {
               'Property';
 
             return (
-              <div className="absolute bottom-6 left-6 right-6 md:right-auto md:w-96 bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border-2 border-emerald-500 z-30 transition-all animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
+              <div
+                onClick={() => router.push(`/property/${selectedProperty.id}`)}
+                className="absolute bottom-6 left-6 right-6 md:right-auto md:w-96 bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border-2 border-emerald-500 z-30 transition-all animate-in fade-in-0 slide-in-from-bottom-4 duration-200 cursor-pointer hover:border-emerald-600"
+              >
                 <div className="flex gap-3.5">
                   <div className="w-24 h-24 rounded-xl bg-slate-100 overflow-hidden shrink-0 relative">
                     <img
@@ -804,6 +809,7 @@ export default function MapExplorer() {
 
                       <Link
                         href={`/property/${selectedProperty.id}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg transition flex items-center gap-1 shadow-sm active:scale-95"
                       >
                         <span>View Property</span>
