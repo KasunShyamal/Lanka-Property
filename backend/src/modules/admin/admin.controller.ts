@@ -39,9 +39,9 @@ export class AdminController {
   }
 
   @Put('properties/:id/reject')
-  @ApiOperation({ summary: 'Reject property listing' })
-  async rejectProperty(@Param('id') id: string) {
-    return this.adminService.rejectProperty(id);
+  @ApiOperation({ summary: 'Reject property listing or pending update' })
+  async rejectProperty(@Param('id') id: string, @Body() body?: { reason?: string }) {
+    return this.adminService.rejectProperty(id, body?.reason);
   }
 
   @Get('pending-auctions')

@@ -83,8 +83,11 @@ export const api = {
     ).toString();
     return fetchApi(`/properties${query ? `?${query}` : ''}`);
   },
+  getMyProperties: () => fetchApi('/properties/my-properties'),
   getProperty: (id: string) => fetchApi(`/properties/${id}`),
   createProperty: (data: any) => fetchApi('/properties', { method: 'POST', body: JSON.stringify(data) }),
+  updateProperty: (id: string, data: any) => fetchApi(`/properties/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteProperty: (id: string) => fetchApi(`/properties/${id}`, { method: 'DELETE' }),
 
   // Auctions
   getAuctions: (status?: string) => fetchApi(`/auctions${status ? `?status=${status}` : ''}`),
@@ -111,7 +114,8 @@ export const api = {
   getAdminStats: () => fetchApi('/admin/stats'),
   getPendingProperties: () => fetchApi('/admin/pending-properties'),
   approveProperty: (id: string) => fetchApi(`/admin/properties/${id}/approve`, { method: 'PUT' }),
-  rejectProperty: (id: string) => fetchApi(`/admin/properties/${id}/reject`, { method: 'PUT' }),
+  rejectProperty: (id: string, reason?: string) =>
+    fetchApi(`/admin/properties/${id}/reject`, { method: 'PUT', body: JSON.stringify({ reason }) }),
   getPendingAuctions: () => fetchApi('/admin/pending-auctions'),
   approveAuction: (id: string) => fetchApi(`/admin/auctions/${id}/approve`, { method: 'PUT' }),
 

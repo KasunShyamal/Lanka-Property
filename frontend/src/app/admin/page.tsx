@@ -30,6 +30,7 @@ import {
   Palette,
   Eye,
   CheckSquare,
+  GitCompare,
 } from 'lucide-react';
 import { api, UserGroupItem, SystemUserItem, PropertyCategoryItem } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -73,6 +74,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<any | null>(null);
   const [pendingProperties, setPendingProperties] = useState<any[]>([]);
   const [pendingAuctions, setPendingAuctions] = useState<any[]>([]);
+  const [comparisonProperty, setComparisonProperty] = useState<any | null>(null);
 
   // Master Data: Property Categories
   const [propertyCategories, setPropertyCategories] = useState<PropertyCategoryItem[]>([]);
@@ -214,16 +216,18 @@ export default function AdminPage() {
     try {
       await api.approveProperty(id);
       showNotification('Property listing approved and published publicly.');
+      setComparisonProperty(null);
       loadModerationData();
     } catch (err: any) {
       alert(err.message || 'Approval failed');
     }
   };
 
-  const handleRejectProperty = async (id: string) => {
+  const handleRejectProperty = async (id: string, reason?: string) => {
     try {
-      await api.rejectProperty(id);
-      showNotification('Property listing rejected.');
+      await api.rejectProperty(id, reason);
+      showNotification('Property listing or pending update rejected.');
+      setComparisonProperty(null);
       loadModerationData();
     } catch (err: any) {
       alert(err.message || 'Rejection failed');
@@ -652,48 +656,83 @@ export default function AdminPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {pendingProperties.map((prop) => (
-                  <div
-                    key={prop.id}
-                    className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-slate-300 transition"
-                  >
-                    <div className="flex gap-3.5">
-                      <div className="w-16 h-16 rounded-xl bg-slate-200 overflow-hidden shrink-0">
-                        <img
-                          src={prop.images?.[0] || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400'}
-                          alt={prop.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
+                {pendingProperties.map((prop) => {
+                  const hasEdit = Boolean(prop.has_pending_update && prop.pending_update);
 
-                      <div>
-                        <h4 className="font-bold text-sm text-slate-900">{prop.title}</h4>
-                        <p className="text-xs text-slate-500">{prop.address}, {prop.city}</p>
-                        <div className="text-xs font-black text-brand-dark mt-1">
-                          LKR {Number(prop.price_lkr).toLocaleString()}{' '}
-                          <span className="font-normal text-slate-400">({prop.land_perches} Perches)</span>
+                  return (
+                    <div
+                      key={prop.id}
+                      className={`p-4 rounded-2xl border transition flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                        hasEdit
+                          ? 'border-purple-200 bg-purple-50/40 hover:border-purple-300'
+                          : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex gap-3.5">
+                        <div className="w-16 h-16 rounded-xl bg-slate-200 overflow-hidden shrink-0 relative">
+                          <img
+                            src={prop.images?.[0] || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400'}
+                            alt={prop.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            {hasEdit ? (
+                              <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border border-purple-200">
+                                <GitCompare className="w-3 h-3 text-purple-600" />
+                                Listing Edit &bull; Audit Ready
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border border-emerald-200">
+                                <Plus className="w-3 h-3 text-emerald-600" />
+                                New Submission
+                              </span>
+                            )}
+                            <span className="text-[11px] text-slate-400">
+                              By {prop.owner?.full_name || 'Owner'}
+                            </span>
+                          </div>
+
+                          <h4 className="font-bold text-sm text-slate-900">{prop.title}</h4>
+                          <p className="text-xs text-slate-500">{prop.address}, {prop.city}</p>
+                          <div className="text-xs font-black text-brand-dark mt-1">
+                            LKR {Number(prop.price_lkr).toLocaleString()}{' '}
+                            <span className="font-normal text-slate-400">({prop.land_perches} Perches)</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleApproveProperty(prop.id)}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Approve &amp; Publish</span>
-                      </button>
-                      <button
-                        onClick={() => handleRejectProperty(prop.id)}
-                        className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold rounded-xl transition flex items-center gap-1.5 active:scale-95"
-                      >
-                        <XCircle className="w-4 h-4" />
-                        <span>Reject</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {hasEdit && (
+                          <button
+                            onClick={() => setComparisonProperty(prop)}
+                            className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95"
+                          >
+                            <GitCompare className="w-3.5 h-3.5" />
+                            <span>Review &amp; Compare</span>
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => handleApproveProperty(prop.id)}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>{hasEdit ? 'Approve Edits' : 'Approve & Publish'}</span>
+                        </button>
+                        <button
+                          onClick={() => handleRejectProperty(prop.id)}
+                          className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold rounded-xl transition flex items-center gap-1.5 active:scale-95"
+                        >
+                          <XCircle className="w-4 h-4" />
+                          <span>Reject</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1709,6 +1748,249 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+      {/* ============================================================== */}
+      {/* PROPERTY COMPARISON AUDIT MODAL                                */}
+      {/* ============================================================== */}
+      {comparisonProperty && (() => {
+        const live = comparisonProperty;
+        const pending = comparisonProperty.pending_update || {};
+
+        const isChanged = (field: string) => {
+          if (pending[field] === undefined) return false;
+          return String(live[field] ?? '').trim() !== String(pending[field] ?? '').trim();
+        };
+
+        const hasImagesChanged =
+          JSON.stringify(live.images || []) !== JSON.stringify(pending.images || live.images || []);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150">
+            <div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl border border-slate-100 my-8 overflow-hidden">
+              {/* Header */}
+              <div className="p-6 bg-gradient-to-r from-purple-950 via-slate-900 to-brand-dark text-white flex items-start justify-between">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-bold mb-2 border border-purple-500/30">
+                    <GitCompare className="w-3.5 h-3.5" />
+                    <span>Side-by-Side Moderation Audit</span>
+                  </div>
+                  <h3 className="text-xl font-black">Compare Property Changes</h3>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Review what earlier existed before the update versus what is newly submitted by the owner.
+                  </p>
+                  <div className="mt-2 text-xs text-slate-300 flex items-center gap-2">
+                    <span>Owner: <strong>{live.owner?.full_name || 'Owner'}</strong> ({live.owner?.email})</span>
+                    {pending.submitted_at && (
+                      <span>&bull; Submitted: {new Date(pending.submitted_at).toLocaleString()}</span>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setComparisonProperty(null)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Comparison Grid Body */}
+              <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4">
+                {/* Column Headers */}
+                <div className="grid grid-cols-2 gap-4 pb-2 border-b-2 border-slate-200">
+                  <div className="flex items-center gap-2 font-black text-xs text-slate-500 uppercase tracking-wider">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                    <span>Earlier / Live Version</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-black text-xs text-purple-700 uppercase tracking-wider">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-600 animate-pulse" />
+                    <span>Newly Submitted Updates</span>
+                  </div>
+                </div>
+
+                {/* 1. Title */}
+                <div className={`p-3.5 rounded-2xl border transition ${isChanged('title') ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-50/50 border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Property Title</span>
+                    {isChanged('title') && (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white">Modified</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                    <div className="text-slate-700">{live.title}</div>
+                    <div className={isChanged('title') ? 'text-emerald-700 font-bold' : 'text-slate-700'}>{pending.title || live.title}</div>
+                  </div>
+                </div>
+
+                {/* 2. Price (LKR) */}
+                <div className={`p-3.5 rounded-2xl border transition ${isChanged('price_lkr') ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-50/50 border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Price (LKR)</span>
+                    {isChanged('price_lkr') && (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white">Modified</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                    <div className="text-slate-700">LKR {Number(live.price_lkr).toLocaleString()} ({(Number(live.price_lkr) / 1000000).toFixed(2)}M)</div>
+                    <div className={isChanged('price_lkr') ? 'text-emerald-700 font-bold' : 'text-slate-700'}>
+                      LKR {Number(pending.price_lkr || live.price_lkr).toLocaleString()} ({(Number(pending.price_lkr || live.price_lkr) / 1000000).toFixed(2)}M)
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Category / Type */}
+                <div className={`p-3.5 rounded-2xl border transition ${isChanged('property_type') || isChanged('category_id') ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-50/50 border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Category / Property Type</span>
+                    {(isChanged('property_type') || isChanged('category_id')) && (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white">Modified</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                    <div className="text-slate-700">{live.category?.name || live.property_type}</div>
+                    <div className={isChanged('property_type') || isChanged('category_id') ? 'text-emerald-700 font-bold' : 'text-slate-700'}>
+                      {pending.category_name || pending.property_type || live.category?.name || live.property_type}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Purpose */}
+                <div className={`p-3.5 rounded-2xl border transition ${isChanged('purpose') ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-50/50 border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Listing Purpose</span>
+                    {isChanged('purpose') && (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white">Modified</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                    <div className="text-slate-700">{live.purpose === 'RENT' ? 'For Rent / Lease' : 'For Sale'}</div>
+                    <div className={isChanged('purpose') ? 'text-emerald-700 font-bold' : 'text-slate-700'}>
+                      {(pending.purpose || live.purpose) === 'RENT' ? 'For Rent / Lease' : 'For Sale'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Land & Floor Area */}
+                <div className={`p-3.5 rounded-2xl border transition ${isChanged('land_perches') || isChanged('floor_sqft') ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-50/50 border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Land (Perches) &amp; Floor (Sqft)</span>
+                    {(isChanged('land_perches') || isChanged('floor_sqft')) && (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white">Modified</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                    <div className="text-slate-700">{live.land_perches || '—'} Perches &bull; {live.floor_sqft || '—'} sqft</div>
+                    <div className={isChanged('land_perches') || isChanged('floor_sqft') ? 'text-emerald-700 font-bold' : 'text-slate-700'}>
+                      {pending.land_perches ?? live.land_perches ?? '—'} Perches &bull; {pending.floor_sqft ?? live.floor_sqft ?? '—'} sqft
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6. Rooms & Parking */}
+                <div className={`p-3.5 rounded-2xl border transition ${isChanged('bedrooms') || isChanged('bathrooms') || isChanged('parking_slots') ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-50/50 border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Rooms &amp; Parking</span>
+                    {(isChanged('bedrooms') || isChanged('bathrooms') || isChanged('parking_slots')) && (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white">Modified</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                    <div className="text-slate-700">{live.bedrooms} Beds &bull; {live.bathrooms} Baths &bull; {live.parking_slots} Parking</div>
+                    <div className={isChanged('bedrooms') || isChanged('bathrooms') || isChanged('parking_slots') ? 'text-emerald-700 font-bold' : 'text-slate-700'}>
+                      {pending.bedrooms ?? live.bedrooms} Beds &bull; {pending.bathrooms ?? live.bathrooms} Baths &bull; {pending.parking_slots ?? live.parking_slots} Parking
+                    </div>
+                  </div>
+                </div>
+
+                {/* 7. Location & Address */}
+                <div className={`p-3.5 rounded-2xl border transition ${isChanged('address') || isChanged('city') || isChanged('district') ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-50/50 border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Location &amp; Address</span>
+                    {(isChanged('address') || isChanged('city') || isChanged('district')) && (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white">Modified</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                    <div className="text-slate-700">{live.address}, {live.city}, {live.district}</div>
+                    <div className={isChanged('address') || isChanged('city') || isChanged('district') ? 'text-emerald-700 font-bold' : 'text-slate-700'}>
+                      {pending.address || live.address}, {pending.city || live.city}, {pending.district || live.district}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 8. Description */}
+                <div className={`p-3.5 rounded-2xl border transition ${isChanged('description') ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-50/50 border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Description</span>
+                    {isChanged('description') && (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white">Modified</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div className="text-slate-600 whitespace-pre-wrap">{live.description}</div>
+                    <div className={`whitespace-pre-wrap ${isChanged('description') ? 'text-emerald-800 font-medium' : 'text-slate-600'}`}>
+                      {pending.description || live.description}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 9. Photos */}
+                <div className={`p-3.5 rounded-2xl border transition ${hasImagesChanged ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-50/50 border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Property Photos</span>
+                    {hasImagesChanged && (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white">Photos Updated</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-wrap gap-2">
+                      {(live.images || []).map((img: string, i: number) => (
+                        <img key={i} src={img} alt="Earlier" className="w-16 h-16 rounded-lg object-cover border border-slate-200" />
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(pending.images || live.images || []).map((img: string, i: number) => (
+                        <img key={i} src={img} alt="Updated" className="w-16 h-16 rounded-lg object-cover border-2 border-emerald-500" />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="p-5 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setComparisonProperty(null)}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition w-full sm:w-auto"
+                >
+                  Close Audit
+                </button>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleRejectProperty(live.id)}
+                    className="px-4 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Reject Changes</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleApproveProperty(live.id)}
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Approve &amp; Publish Changes</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

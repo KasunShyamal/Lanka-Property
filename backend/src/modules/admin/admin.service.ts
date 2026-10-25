@@ -43,23 +43,60 @@ export class AdminService {
 
   async getPendingProperties() {
     return this.propertyRepo.find({
-      where: { status: PropertyStatus.PENDING },
-      relations: ['owner'],
-      order: { created_at: 'DESC' },
+      where: [
+        { status: PropertyStatus.PENDING },
+        { has_pending_update: true },
+      ],
+      relations: ['owner', 'category'],
+      order: { updated_at: 'DESC' },
     });
   }
 
   async approveProperty(id: string) {
-    const prop = await this.propertyRepo.findOne({ where: { id } });
+    const prop = await this.propertyRepo.findOne({
+      where: { id },
+      relations: ['category', 'owner'],
+    });
     if (!prop) throw new NotFoundException('Property not found');
+
+    if (prop.has_pending_update && prop.pending_update) {
+      const updateData = { ...prop.pending_update };
+      delete updateData.submitted_at;
+      delete updateData.category_name;
+
+      if (updateData.category_id) {
+        const cat = await this.categoryRepo.findOne({ where: { id: updateData.category_id } });
+        if (cat) {
+          prop.category = cat;
+          prop.category_id = cat.id;
+          prop.property_type = cat.code;
+        }
+      }
+
+      Object.assign(prop, updateData);
+      prop.pending_update = null as any;
+      prop.has_pending_update = false;
+    }
+
     prop.status = PropertyStatus.APPROVED;
+    prop.moderation_notes = null as any;
     return this.propertyRepo.save(prop);
   }
 
-  async rejectProperty(id: string) {
+  async rejectProperty(id: string, reason?: string) {
     const prop = await this.propertyRepo.findOne({ where: { id } });
     if (!prop) throw new NotFoundException('Property not found');
-    prop.status = PropertyStatus.REJECTED;
+
+    if (prop.has_pending_update) {
+      // Rejection of an edit: discard the pending update and retain the active listing
+      prop.pending_update = null as any;
+      prop.has_pending_update = false;
+      if (reason) prop.moderation_notes = reason;
+    } else {
+      prop.status = PropertyStatus.REJECTED;
+      if (reason) prop.moderation_notes = reason;
+    }
+
     return this.propertyRepo.save(prop);
   }
 
