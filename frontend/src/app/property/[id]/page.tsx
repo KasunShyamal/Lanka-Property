@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import {
   MapPin,
   Bed,
@@ -15,12 +16,25 @@ import {
   Sparkles,
   ArrowLeft,
   X,
+  Compass,
+  ExternalLink,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import CustomSelect from '@/components/ui/CustomSelect';
+import { useAuth } from '@/context/AuthContext';
+
+const PropertyMiniMap = dynamic(() => import('@/components/PropertyMiniMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-72 w-full rounded-2xl bg-slate-100 flex items-center justify-center text-xs text-slate-400 font-semibold border border-slate-200">
+      Loading property spatial map...
+    </div>
+  ),
+});
 
 export default function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
+  const { user, isLoggedIn, openAuthModal } = useAuth();
   const [property, setProperty] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
@@ -62,19 +76,32 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     }
   };
 
+  const handleOpenInspectionModal = () => {
+    if (!isLoggedIn) {
+      openAuthModal('login', 'Please sign in to schedule an in-person property inspection.');
+      return;
+    }
+    setShowInspectionModal(true);
+  };
+
+  const handleOpenExchangeModal = () => {
+    if (!isLoggedIn) {
+      openAuthModal('login', 'Please sign in to propose a verified property exchange.');
+      return;
+    }
+    setShowExchangeModal(true);
+  };
+
   const handleInspectionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!property) return;
 
-    try {
-      if (!localStorage.getItem('lp_token')) {
-        const loginRes = await api.login({
-          email: 'rohan.de.silva@outlook.com',
-          password: 'Admin@12345',
-        });
-        localStorage.setItem('lp_token', loginRes.token);
-      }
+    if (!isLoggedIn) {
+      openAuthModal('login', 'Please sign in to schedule an in-person property inspection.');
+      return;
+    }
 
+    try {
       await api.createInspection({
         property_id: property.id,
         scheduled_at: new Date(inspectionDate).toISOString(),
@@ -95,15 +122,12 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     e.preventDefault();
     if (!property) return;
 
-    try {
-      if (!localStorage.getItem('lp_token')) {
-        const loginRes = await api.login({
-          email: 'chamari.senanayake@yahoo.com',
-          password: 'Admin@12345',
-        });
-        localStorage.setItem('lp_token', loginRes.token);
-      }
+    if (!isLoggedIn) {
+      openAuthModal('login', 'Please sign in to propose a property exchange.');
+      return;
+    }
 
+    try {
       await api.createExchange({
         offered_property_id: selectedOfferProp,
         target_property_id: property.id,
@@ -151,6 +175,22 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-2">
+            {property.category && (
+              <span
+                className="px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs"
+                style={{
+                  backgroundColor: `${property.category.color_code || '#10B981'}15`,
+                  color: property.category.color_code || '#10B981',
+                  borderColor: `${property.category.color_code || '#10B981'}40`,
+                }}
+              >
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: property.category.color_code || '#10B981' }}
+                />
+                <span>{property.category.name}</span>
+              </span>
+            )}
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               Verified Title Deed
@@ -280,6 +320,53 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
               </div>
             </div>
           )}
+
+          {/* Property GPS Location & Geospatial Mini Map Card */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-xs shrink-0"
+                    style={{ backgroundColor: property.category?.color_code || '#10B981' }}
+                  >
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <h2 className="text-lg font-extrabold text-brand-dark">Property Location &amp; Spatial View</h2>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {property.address ? `${property.address}, ` : ''}{property.city}, {property.district} &bull; GPS: {Number(property.latitude).toFixed(4)}° N, {Number(property.longitude).toFixed(4)}° E
+                </p>
+              </div>
+
+              {/* Action Buttons: Full Map Link */}
+              <div className="flex items-center gap-2 shrink-0">
+                <Link
+                  href={`/map?city=${encodeURIComponent(property.city || '')}`}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition active:scale-95"
+                >
+                  <Compass className="w-4 h-4 text-emerald-400" />
+                  <span>Load Full Map</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Embedded Mini Leaflet Map */}
+            <div className="h-72 sm:h-80 w-full rounded-2xl overflow-hidden border border-slate-200 relative z-0">
+              <PropertyMiniMap
+                latitude={Number(property.latitude)}
+                longitude={Number(property.longitude)}
+                title={property.title}
+                price_lkr={property.price_lkr}
+                categoryColor={property.category?.color_code}
+                categoryName={property.category?.name}
+                address={property.address}
+                city={property.city}
+                district={property.district}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Interaction Sidebar (4 cols) */}
@@ -322,8 +409,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
             {/* In-Person Inspection Button */}
             <button
               type="button"
-              onClick={() => setShowInspectionModal(true)}
-              className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition active:scale-98 text-sm"
+              onClick={handleOpenInspectionModal}
+              className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition active:scale-98 text-sm cursor-pointer"
             >
               <Calendar className="w-4 h-4 text-emerald-400" />
               <span>Schedule In-Person Inspection</span>
@@ -333,8 +420,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
             {property.is_exchange_eligible && (
               <button
                 type="button"
-                onClick={() => setShowExchangeModal(true)}
-                className="w-full inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition active:scale-98 text-sm"
+                onClick={handleOpenExchangeModal}
+                className="w-full inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition active:scale-98 text-sm cursor-pointer"
               >
                 <Repeat className="w-4 h-4" />
                 <span>Propose Property Swap / Exchange</span>

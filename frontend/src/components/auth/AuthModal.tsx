@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { api, UserGroupItem } from '@/lib/api';
 import {
   X,
   Mail,
@@ -36,8 +37,13 @@ export default function AuthModal() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Group / Role selection (Buyer, Seller, Agent)
-  const [role, setRole] = useState<'BUYER' | 'SELLER' | 'AGENT'>('BUYER');
+  // Dynamic Public User Groups (Master Data: Buyer, Seller, Agent)
+  const [publicGroups, setPublicGroups] = useState<UserGroupItem[]>([
+    { id: '1', code: 'BUYER', name: 'Buyer', description: 'Browse & Bid', is_public_registration: true, is_system_group: true, created_at: '' },
+    { id: '2', code: 'SELLER', name: 'Seller', description: 'List Properties', is_public_registration: true, is_system_group: true, created_at: '' },
+    { id: '3', code: 'AGENT', name: 'Agent', description: 'Realtor', is_public_registration: true, is_system_group: true, created_at: '' },
+  ]);
+  const [role, setRole] = useState<string>('BUYER');
   const [agencyName, setAgencyName] = useState('');
 
   // Form states
@@ -59,7 +65,7 @@ export default function AuthModal() {
   const [isAddingNewGoogleAccount, setIsAddingNewGoogleAccount] = useState(false);
   const [savedGoogleUser, setSavedGoogleUser] = useState<{ email: string; name: string } | null>(null);
 
-  // Load previously used Google account ONLY from this specific browser
+  // Load previously used Google account and fetch public user groups
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -74,6 +80,17 @@ export default function AuthModal() {
         // ignore
       }
     }
+
+    // Fetch dynamic public user groups (Buyer, Seller, Agent)
+    api.getPublicUserGroups()
+      .then((groups) => {
+        if (groups && groups.length > 0) {
+          setPublicGroups(groups);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load public user groups:', err);
+      });
   }, []);
 
   // Keep activeTab in sync with modal tab requested
@@ -339,26 +356,21 @@ export default function AuthModal() {
                 {role}
               </span>
             </div>
-
-            <div className="grid grid-cols-3 gap-1.5">
-              {[
-                { id: 'BUYER', label: 'Buyer', desc: 'Browse & Bid' },
-                { id: 'SELLER', label: 'Seller', desc: 'List Properties' },
-                { id: 'AGENT', label: 'Agent', desc: 'Realtor' },
-              ].map((item) => (
+            <div className={`grid ${publicGroups.length <= 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-3'} gap-1.5`}>
+              {publicGroups.map((item) => (
                 <button
                   type="button"
-                  key={item.id}
-                  onClick={() => setRole(item.id as any)}
+                  key={item.code}
+                  onClick={() => setRole(item.code)}
                   className={`p-2 rounded-xl border text-center transition ${
-                    role === item.id
+                    role === item.code
                       ? 'border-emerald-600 bg-emerald-600 text-white font-bold shadow-sm'
                       : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 font-semibold'
                   }`}
                 >
-                  <div className="text-xs">{item.label}</div>
-                  <div className={`text-[9px] ${role === item.id ? 'text-emerald-100' : 'text-slate-400'}`}>
-                    {item.desc}
+                  <div className="text-xs font-bold">{item.name}</div>
+                  <div className={`text-[9px] ${role === item.code ? 'text-emerald-100' : 'text-slate-400'} truncate`}>
+                    {item.description || item.name}
                   </div>
                 </button>
               ))}

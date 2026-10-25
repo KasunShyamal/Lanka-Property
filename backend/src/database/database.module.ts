@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
+import { UserGroup } from './entities/user-group.entity';
 import { Property } from './entities/property.entity';
 import { Auction } from './entities/auction.entity';
 import { Bid } from './entities/bid.entity';
 import { Inspection } from './entities/inspection.entity';
 import { Exchange } from './entities/exchange.entity';
+
+import { PropertyCategory } from './entities/property-category.entity';
 
 @Module({
   imports: [
@@ -26,13 +29,13 @@ import { Exchange } from './entities/exchange.entity';
                 password: process.env.DB_PASSWORD || 'lankaproperty_secret_pass',
                 database: process.env.DB_NAME || 'lankaproperty_db',
               }),
-          entities: [User, Property, Auction, Bid, Inspection, Exchange],
+          entities: [User, UserGroup, PropertyCategory, Property, Auction, Bid, Inspection, Exchange],
           synchronize: true, // Auto-sync schema in development & free staging
           logging: false,
         };
       },
     }),
-    TypeOrmModule.forFeature([User, Property, Auction, Bid, Inspection, Exchange]),
+    TypeOrmModule.forFeature([User, UserGroup, PropertyCategory, Property, Auction, Bid, Inspection, Exchange]),
   ],
   exports: [TypeOrmModule],
 })

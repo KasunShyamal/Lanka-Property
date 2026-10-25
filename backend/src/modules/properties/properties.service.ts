@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Property, PropertyStatus, PropertyPurpose, PropertyType } from '../../database/entities/property.entity';
+import { PropertyCategory } from '../../database/entities/property-category.entity';
 import { User, UserRole } from '../../database/entities/user.entity';
 
 @Injectable()
@@ -9,6 +10,8 @@ export class PropertiesService {
   constructor(
     @InjectRepository(Property)
     private readonly propertyRepo: Repository<Property>,
+    @InjectRepository(PropertyCategory)
+    private readonly categoryRepo: Repository<PropertyCategory>,
   ) {}
 
   async findAll(query: {
@@ -34,6 +37,7 @@ export class PropertiesService {
     const qb = this.propertyRepo
       .createQueryBuilder('property')
       .leftJoinAndSelect('property.owner', 'owner')
+      .leftJoinAndSelect('property.category', 'category')
       .where('property.status = :status', { status: PropertyStatus.APPROVED });
 
     if (query.search) {
@@ -47,8 +51,17 @@ export class PropertiesService {
       qb.andWhere('property.purpose = :purpose', { purpose: query.purpose });
     }
 
-    if (query.property_type) {
-      qb.andWhere('property.property_type = :property_type', { property_type: query.property_type });
+    if (query.property_type || (query as any).category_id) {
+      if ((query as any).category_id) {
+        qb.andWhere('(property.category_id = :catId OR property.property_type = :propType)', {
+          catId: (query as any).category_id,
+          propType: query.property_type,
+        });
+      } else {
+        qb.andWhere('(property.property_type = :property_type OR category.code = :property_type)', {
+          property_type: query.property_type,
+        });
+      }
     }
 
     if (query.district) {
@@ -59,12 +72,18 @@ export class PropertiesService {
       qb.andWhere('LOWER(property.city) = LOWER(:city)', { city: query.city });
     }
 
-    if (query.min_price) {
-      qb.andWhere('property.price_lkr >= :min_price', { min_price: query.min_price });
+    if (query.min_price !== undefined && query.min_price !== null && String(query.min_price).trim() !== '') {
+      const minVal = Number(query.min_price);
+      if (!isNaN(minVal)) {
+        qb.andWhere('property.price_lkr >= :min_price', { min_price: minVal });
+      }
     }
 
-    if (query.max_price) {
-      qb.andWhere('property.price_lkr <= :max_price', { max_price: query.max_price });
+    if (query.max_price !== undefined && query.max_price !== null && String(query.max_price).trim() !== '') {
+      const maxVal = Number(query.max_price);
+      if (!isNaN(maxVal)) {
+        qb.andWhere('property.price_lkr <= :max_price', { max_price: maxVal });
+      }
     }
 
     if (query.bedrooms) {
@@ -112,7 +131,7 @@ export class PropertiesService {
   async findOne(id: string) {
     const property = await this.propertyRepo.findOne({
       where: [{ id }, { slug: id }],
-      relations: ['owner', 'auctions'],
+      relations: ['owner', 'auctions', 'category'],
     });
     if (!property) {
       throw new NotFoundException(`Property with ID/Slug '${id}' not found`);
@@ -135,6 +154,13 @@ export class PropertiesService {
     const price_per_perch = land_perches && land_perches > 0 ? Math.round(price / land_perches) : null;
     const price_per_sqft = floor_sqft && floor_sqft > 0 ? Math.round(price / floor_sqft) : null;
 
+    let category = null;
+    if (data.category_id) {
+      category = await this.categoryRepo.findOne({ where: { id: data.category_id } });
+    } else if (data.property_type) {
+      category = await this.categoryRepo.findOne({ where: { code: data.property_type } });
+    }
+
     const property = this.propertyRepo.create({
       ...data,
       slug,
@@ -143,6 +169,9 @@ export class PropertiesService {
       floor_sqft,
       price_per_perch,
       price_per_sqft,
+      category_id: category?.id,
+      category: category || undefined,
+      property_type: category?.code || data.property_type || 'HOUSE',
       status: user.role === UserRole.SUPER_ADMIN || user.role === UserRole.MODERATOR ? PropertyStatus.APPROVED : PropertyStatus.PENDING,
       owner: user,
     });
@@ -154,6 +183,20 @@ export class PropertiesService {
     const property = await this.findOne(id);
     if (property.owner.id !== user.id && user.role !== UserRole.SUPER_ADMIN && user.role !== UserRole.MODERATOR) {
       throw new ForbiddenException('You do not have permission to edit this property');
+    }
+
+    if (data.category_id || data.property_type) {
+      let category = null;
+      if (data.category_id) {
+        category = await this.categoryRepo.findOne({ where: { id: data.category_id } });
+      } else if (data.property_type) {
+        category = await this.categoryRepo.findOne({ where: { code: data.property_type } });
+      }
+      if (category) {
+        property.category = category;
+        property.category_id = category.id;
+        property.property_type = category.code;
+      }
     }
 
     Object.assign(property, data);

@@ -86,7 +86,7 @@ export default function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 transition-all duration-300">
+    <header className="sticky top-0 z-40 transition-all duration-300">
       {/* Top Ambient Ticker Bar */}
       <div className="bg-gradient-to-r from-slate-950 via-brand-dark to-slate-950 text-slate-300 text-[11px] py-1.5 px-4 border-b border-white/10 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -201,29 +201,33 @@ export default function Navbar() {
               </span>
             </Link>
 
-            <Link
-              href="/inspections"
-              className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${
-                pathname === '/inspections'
-                  ? 'bg-white text-emerald-700 shadow-sm shadow-slate-200/50 scale-[1.02]'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5 text-sky-600" />
-              <span>Inspections</span>
-            </Link>
+            {isLoggedIn && (
+              <>
+                <Link
+                  href="/inspections"
+                  className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${
+                    pathname === '/inspections'
+                      ? 'bg-white text-emerald-700 shadow-sm shadow-slate-200/50 scale-[1.02]'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Inspections</span>
+                </Link>
 
-            <Link
-              href="/exchanges"
-              className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${
-                pathname === '/exchanges'
-                  ? 'bg-white text-emerald-700 shadow-sm shadow-slate-200/50 scale-[1.02]'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-              }`}
-            >
-              <Repeat className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Swaps</span>
-            </Link>
+                <Link
+                  href="/exchanges"
+                  className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${
+                    pathname === '/exchanges'
+                      ? 'bg-white text-emerald-700 shadow-sm shadow-slate-200/50 scale-[1.02]'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <Repeat className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Swaps</span>
+                </Link>
+              </>
+            )}
 
             {/* Admin link in center capsule ONLY if admin */}
             {isAdmin && (
@@ -298,14 +302,14 @@ export default function Navbar() {
                     <div className="flex items-center gap-1 mt-0.5">
                       <span
                         className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full border ${
-                          user.role === 'SUPER_ADMIN'
+                          user.role === 'SUPER_ADMIN' || user.group?.code === 'SUPER_ADMIN'
                             ? 'bg-purple-50 text-purple-700 border-purple-200'
-                            : user.role === 'AGENT'
+                            : user.role === 'AGENT' || user.group?.code === 'AGENT'
                             ? 'bg-blue-50 text-blue-700 border-blue-200'
                             : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         }`}
                       >
-                        {user.role === 'SUPER_ADMIN' ? 'Admin' : user.role.toLowerCase().replace('_', ' ')}
+                        {user.group?.name || (user.role === 'SUPER_ADMIN' ? 'Admin' : user.role.toLowerCase().replace('_', ' '))}
                       </span>
                     </div>
                   </div>
@@ -456,7 +460,14 @@ export default function Navbar() {
         {mobileMenuOpen && (
           <div className="xl:hidden border-t border-slate-200 bg-white/98 backdrop-blur-xl px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top-2 duration-200">
             <div className="grid grid-cols-1 gap-1">
-              {navLinks.map((link) => {
+              {navLinks
+                .filter((link) => {
+                  if ((link.href === '/inspections' || link.href === '/exchanges') && !isLoggedIn) {
+                    return false;
+                  }
+                  return true;
+                })
+                .map((link) => {
                 const Icon = link.icon;
                 const isActive = pathname === link.href;
                 return (
