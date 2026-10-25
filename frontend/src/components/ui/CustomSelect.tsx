@@ -147,7 +147,7 @@ export default function CustomSelect({
       {isOpen && (
         <div
           role="listbox"
-          className={`absolute z-[99999] left-0 right-0 ${
+          className={`absolute z-[99999] left-0 min-w-full w-max max-w-[min(100vw-2rem,460px)] ${
             openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           } max-h-64 overflow-y-auto bg-white rounded-2xl border border-slate-200 shadow-2xl p-1.5 divide-y divide-slate-100 animate-in fade-in-0 zoom-in-95 duration-150`}
           style={{ boxShadow: '0 20px 40px -15px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05)' }}
@@ -161,36 +161,36 @@ export default function CustomSelect({
                   role="option"
                   aria-selected={isSelected}
                   onClick={() => handleSelect(option.value)}
-                  className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                  className={`w-full flex items-start justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
                     isSelected
                       ? 'bg-emerald-50 text-emerald-900 font-bold shadow-xs'
                       : 'text-slate-700 hover:bg-slate-100/80 hover:text-slate-900'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
                     {option.icon && (
                       <span
-                        className={`shrink-0 ${
+                        className={`shrink-0 mt-0.5 ${
                           isSelected ? 'text-emerald-600' : 'text-slate-400'
                         }`}
                       >
                         {option.icon}
                       </span>
                     )}
-                    <div>
-                      <div className="truncate">{option.label}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-bold leading-tight">{option.label}</div>
                       {option.description && (
-                        <div className="text-[10px] text-slate-400 font-normal truncate">
+                        <div className="text-[10px] text-slate-400 font-normal truncate mt-0.5 leading-normal max-w-full">
                           {option.description}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                  <div className="flex items-center gap-1.5 shrink-0 ml-3 mt-0.5">
                     {option.badge && (
                       <span
-                        className={`text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${
+                        className={`text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded whitespace-nowrap shrink-0 ${
                           option.badge.toLowerCase().includes('staff') ||
                           option.badge.toLowerCase().includes('internal')
                             ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
@@ -201,7 +201,7 @@ export default function CustomSelect({
                       </span>
                     )}
                     {isSelected && (
-                      <Check className="w-4 h-4 text-emerald-600" />
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     )}
                   </div>
                 </div>
