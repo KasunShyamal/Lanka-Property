@@ -298,14 +298,14 @@ export default function Navbar() {
                     <div className="flex items-center gap-1 mt-0.5">
                       <span
                         className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full border ${
-                          user.role === 'SUPER_ADMIN'
+                          user.role === 'SUPER_ADMIN' || user.group?.code === 'SUPER_ADMIN'
                             ? 'bg-purple-50 text-purple-700 border-purple-200'
-                            : user.role === 'AGENT'
+                            : user.role === 'AGENT' || user.group?.code === 'AGENT'
                             ? 'bg-blue-50 text-blue-700 border-blue-200'
                             : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         }`}
                       >
-                        {user.role === 'SUPER_ADMIN' ? 'Admin' : user.role.toLowerCase().replace('_', ' ')}
+                        {user.group?.name || (user.role === 'SUPER_ADMIN' ? 'Admin' : user.role.toLowerCase().replace('_', ' '))}
                       </span>
                     </div>
                   </div>

@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { api, UserGroupItem, SystemUserItem } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import CustomSelect, { SelectOption } from '@/components/ui/CustomSelect';
 
 type AdminTab = 'moderation' | 'user-groups' | 'system-users';
 
@@ -235,6 +236,14 @@ export default function AdminPage() {
     });
   };
 
+  // User Group options for CustomSelect dropdown
+  const userGroupOptions: SelectOption[] = userGroups.map((grp) => ({
+    value: grp.id,
+    label: `${grp.name} (${grp.code})`,
+    badge: grp.is_public_registration ? 'Public' : 'Staff',
+    description: grp.description || (grp.is_public_registration ? 'Public Visitor Registration' : 'Internal Operational Staff'),
+  }));
+
   // System User Actions
   const openCreateUserModal = () => {
     setEditingUser(null);
@@ -263,6 +272,9 @@ export default function AdminPage() {
     setErrorMessage(null);
     setUserFormSubmitting(true);
     try {
+      if (!userFormGroupId) {
+        throw new Error('Please select an Assigned User Group.');
+      }
       if (editingUser) {
         await api.updateAdminSystemUser(editingUser.id, {
           full_name: userFormName,
@@ -393,7 +405,7 @@ export default function AdminPage() {
             }`}
           >
             <FolderTree className="w-3.5 h-3.5" />
-            <span>User Groups (Master Data)</span>
+            <span>User Groups</span>
           </button>
 
           <button
@@ -1071,23 +1083,17 @@ export default function AdminPage() {
                 </div>
               )}
 
-              <div>
+              <div className="relative z-30">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Assigned User Group (Master Data) *
                 </label>
-                <select
-                  required
+                <CustomSelect
                   value={userFormGroupId}
-                  onChange={(e) => setUserFormGroupId(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                >
-                  <option value="">-- Select Master User Group --</option>
-                  {userGroups.map((grp) => (
-                    <option key={grp.id} value={grp.id}>
-                      {grp.name} ({grp.code}) {!grp.is_public_registration ? '— Internal Staff' : '— Public'}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setUserFormGroupId(val)}
+                  options={userGroupOptions}
+                  placeholder="-- Select Master User Group --"
+                  icon={<Briefcase className="w-4 h-4 text-slate-400" />}
+                />
               </div>
 
               <div>

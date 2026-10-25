@@ -123,7 +123,14 @@ export default function CustomSelect({
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           {selectedOption?.badge && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 ml-auto shrink-0">
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-md ml-auto shrink-0 ${
+                selectedOption.badge.toLowerCase().includes('staff') ||
+                selectedOption.badge.toLowerCase().includes('internal')
+                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                  : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+              }`}
+            >
               {selectedOption.badge}
             </span>
           )}
@@ -182,7 +189,14 @@ export default function CustomSelect({
 
                   <div className="flex items-center gap-1.5 shrink-0 ml-2">
                     {option.badge && (
-                      <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                      <span
+                        className={`text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${
+                          option.badge.toLowerCase().includes('staff') ||
+                          option.badge.toLowerCase().includes('internal')
+                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        }`}
+                      >
                         {option.badge}
                       </span>
                     )}
