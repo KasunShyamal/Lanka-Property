@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import {
   MapPin,
   Bed,
@@ -15,9 +16,20 @@ import {
   Sparkles,
   ArrowLeft,
   X,
+  Compass,
+  ExternalLink,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import CustomSelect from '@/components/ui/CustomSelect';
+
+const PropertyMiniMap = dynamic(() => import('@/components/PropertyMiniMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-72 w-full rounded-2xl bg-slate-100 flex items-center justify-center text-xs text-slate-400 font-semibold border border-slate-200">
+      Loading property spatial map...
+    </div>
+  ),
+});
 
 export default function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -296,6 +308,53 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
               </div>
             </div>
           )}
+
+          {/* Property GPS Location & Geospatial Mini Map Card */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-xs shrink-0"
+                    style={{ backgroundColor: property.category?.color_code || '#10B981' }}
+                  >
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <h2 className="text-lg font-extrabold text-brand-dark">Property Location &amp; Spatial View</h2>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {property.address ? `${property.address}, ` : ''}{property.city}, {property.district} &bull; GPS: {Number(property.latitude).toFixed(4)}° N, {Number(property.longitude).toFixed(4)}° E
+                </p>
+              </div>
+
+              {/* Action Buttons: Full Map Link */}
+              <div className="flex items-center gap-2 shrink-0">
+                <Link
+                  href={`/map?city=${encodeURIComponent(property.city || '')}`}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition active:scale-95"
+                >
+                  <Compass className="w-4 h-4 text-emerald-400" />
+                  <span>Load Full Map</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Embedded Mini Leaflet Map */}
+            <div className="h-72 sm:h-80 w-full rounded-2xl overflow-hidden border border-slate-200 relative z-0">
+              <PropertyMiniMap
+                latitude={Number(property.latitude)}
+                longitude={Number(property.longitude)}
+                title={property.title}
+                price_lkr={property.price_lkr}
+                categoryColor={property.category?.color_code}
+                categoryName={property.category?.name}
+                address={property.address}
+                city={property.city}
+                district={property.district}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Interaction Sidebar (4 cols) */}
