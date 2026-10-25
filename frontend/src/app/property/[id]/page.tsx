@@ -151,6 +151,22 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-2">
+            {property.category && (
+              <span
+                className="px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs"
+                style={{
+                  backgroundColor: `${property.category.color_code || '#10B981'}15`,
+                  color: property.category.color_code || '#10B981',
+                  borderColor: `${property.category.color_code || '#10B981'}40`,
+                }}
+              >
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: property.category.color_code || '#10B981' }}
+                />
+                <span>{property.category.name}</span>
+              </span>
+            )}
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               Verified Title Deed

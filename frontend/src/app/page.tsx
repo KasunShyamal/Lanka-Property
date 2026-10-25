@@ -21,7 +21,7 @@ import {
   Landmark,
   Layers,
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, PropertyCategoryItem } from '@/lib/api';
 import CustomSelect, { SelectOption } from '@/components/ui/CustomSelect';
 
 const SEARCH_PROPERTY_TYPES: SelectOption[] = [
@@ -42,6 +42,30 @@ export default function HomePage() {
   const [search, setSearch] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
   const [propertyType, setPropertyType] = useState('');
+  const [categories, setCategories] = useState<PropertyCategoryItem[]>([]);
+
+  useEffect(() => {
+    api.getPropertyCategories()
+      .then((cats) => {
+        if (cats && cats.length > 0) setCategories(cats);
+      })
+      .catch((err) => console.warn('Could not load categories:', err));
+  }, []);
+
+  const categoryOptions: SelectOption[] = [
+    { value: '', label: 'All Property Types', icon: <Layers className="w-4 h-4 text-slate-400" /> },
+    ...categories.map((c) => ({
+      value: c.code,
+      label: c.name,
+      badge: c.code,
+      icon: (
+        <span
+          className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-xs"
+          style={{ backgroundColor: c.color_code }}
+        />
+      ),
+    })),
+  ];
 
   useEffect(() => {
     loadData();
@@ -152,7 +176,7 @@ export default function HomePage() {
                 <CustomSelect
                   value={propertyType}
                   onChange={(val) => setPropertyType(val)}
-                  options={SEARCH_PROPERTY_TYPES}
+                  options={categories.length > 0 ? categoryOptions : SEARCH_PROPERTY_TYPES}
                   placeholder="All Property Types"
                 />
               </div>
@@ -316,8 +340,14 @@ export default function HomePage() {
                     )}
                   </div>
 
-                  <div className="absolute bottom-3 right-3 bg-brand-dark/80 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-lg font-bold">
-                    {property.property_type?.replace('_', ' ')}
+                  <div
+                    className="absolute bottom-3 right-3 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-lg font-bold shadow-md flex items-center gap-1.5 border border-white/20"
+                    style={{
+                      backgroundColor: `${property.category?.color_code || '#0f172a'}E6`,
+                    }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    <span>{property.category?.name || property.property_type?.replace('_', ' ')}</span>
                   </div>
                 </div>
 

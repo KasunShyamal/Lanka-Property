@@ -55,6 +55,20 @@ export interface SystemUserItem {
   };
 }
 
+export interface PropertyCategoryItem {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  color_code: string;
+  icon: string;
+  is_active: boolean;
+  display_order: number;
+  property_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export const api = {
   // Auth
   login: (data: any) => fetchApi('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
@@ -100,6 +114,18 @@ export const api = {
   rejectProperty: (id: string) => fetchApi(`/admin/properties/${id}/reject`, { method: 'PUT' }),
   getPendingAuctions: () => fetchApi('/admin/pending-auctions'),
   approveAuction: (id: string) => fetchApi(`/admin/auctions/${id}/approve`, { method: 'PUT' }),
+
+  // Master Data: Property Categories
+  getPropertyCategories: () => fetchApi('/property-categories'),
+
+  // Admin Master Data: Property Categories
+  getAdminPropertyCategories: () => fetchApi('/admin/property-categories'),
+  createAdminPropertyCategory: (data: any) =>
+    fetchApi('/admin/property-categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateAdminPropertyCategory: (id: string, data: any) =>
+    fetchApi(`/admin/property-categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteAdminPropertyCategory: (id: string) =>
+    fetchApi(`/admin/property-categories/${id}`, { method: 'DELETE' }),
 
   // Admin Master Data: User Groups
   getAdminUserGroups: () => fetchApi('/admin/user-groups'),

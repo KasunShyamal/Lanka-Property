@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User, UserRole, KycStatus } from '../database/entities/user.entity';
 import { UserGroup } from '../database/entities/user-group.entity';
+import { PropertyCategory } from '../database/entities/property-category.entity';
 import { Property, PropertyPurpose, PropertyType, PropertyStatus } from '../database/entities/property.entity';
 import { Auction, AuctionStatus } from '../database/entities/auction.entity';
 import { Bid, BidStatus } from '../database/entities/bid.entity';
@@ -17,6 +18,7 @@ export class SeedService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(UserGroup) private readonly groupRepo: Repository<UserGroup>,
+    @InjectRepository(PropertyCategory) private readonly categoryRepo: Repository<PropertyCategory>,
     @InjectRepository(Property) private readonly propertyRepo: Repository<Property>,
     @InjectRepository(Auction) private readonly auctionRepo: Repository<Auction>,
     @InjectRepository(Bid) private readonly bidRepo: Repository<Bid>,
@@ -26,6 +28,7 @@ export class SeedService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap() {
     await this.seedUserGroups();
+    await this.seedPropertyCategories();
     await this.seedData();
   }
 
@@ -165,6 +168,91 @@ export class SeedService implements OnApplicationBootstrap {
       });
       await this.userRepo.save(accountantUser);
       this.logger.log('Seeded sample System User: Nimal Accountant (accountant@lankaproperty.lk)');
+    }
+  }
+
+  async seedPropertyCategories() {
+    const defaultCategories = [
+      {
+        code: 'HOUSE',
+        name: 'Houses & Luxury Villas',
+        description: 'Single family residences, architectural villas, and bungalows',
+        color_code: '#10B981', // Emerald
+        icon: 'Home',
+        display_order: 1,
+      },
+      {
+        code: 'APARTMENT',
+        name: 'Apartments & Penthouses',
+        description: 'High-rise luxury apartments, residencies, and penthouses',
+        color_code: '#3B82F6', // Royal Blue
+        icon: 'Building2',
+        display_order: 2,
+      },
+      {
+        code: 'RESIDENTIAL_LAND',
+        name: 'Residential Land & Plots',
+        description: 'Subdivided prime plots for residential home construction',
+        color_code: '#F59E0B', // Amber
+        icon: 'Compass',
+        display_order: 3,
+      },
+      {
+        code: 'COMMERCIAL',
+        name: 'Commercial Properties & Offices',
+        description: 'Retail stores, commercial buildings, corporate headquarters, and showrooms',
+        color_code: '#8B5CF6', // Purple
+        icon: 'Briefcase',
+        display_order: 4,
+      },
+      {
+        code: 'COMMERCIAL_LAND',
+        name: 'Commercial Lands',
+        description: 'High-visibility highway and city frontage lands for commercial ventures',
+        color_code: '#F97316', // Orange
+        icon: 'Landmark',
+        display_order: 5,
+      },
+      {
+        code: 'AGRICULTURAL',
+        name: 'Agricultural & Plantations',
+        description: 'Tea, rubber, coconut, cinnamon and spice cultivation estates',
+        color_code: '#14B8A6', // Teal
+        icon: 'Trees',
+        display_order: 6,
+      },
+      {
+        code: 'BEACHFRONT',
+        name: 'Beachfront & Holiday Properties',
+        description: 'Coastal frontage tourist plots, boutique hotels and surf villas',
+        color_code: '#06B6D4', // Cyan
+        icon: 'Waves',
+        display_order: 7,
+      },
+    ];
+
+    for (const cat of defaultCategories) {
+      const existing = await this.categoryRepo.findOne({ where: { code: cat.code } });
+      if (!existing) {
+        await this.categoryRepo.save(this.categoryRepo.create({ ...cat, is_active: true }));
+        this.logger.log(`Created default property category: ${cat.name} (${cat.code}) with color ${cat.color_code}`);
+      }
+    }
+
+    // Connect any existing properties that don't have category_id set
+    const propertiesWithoutCategory = await this.propertyRepo.find({ where: { category_id: null as any } });
+    if (propertiesWithoutCategory.length > 0) {
+      const allCategories = await this.categoryRepo.find();
+      const catMap = new Map(allCategories.map(c => [c.code, c]));
+      for (const prop of propertiesWithoutCategory) {
+        const targetCat = catMap.get(prop.property_type) || catMap.get('HOUSE');
+        if (targetCat) {
+          prop.category_id = targetCat.id;
+          prop.category = targetCat;
+          await this.propertyRepo.save(prop);
+        }
+      }
+      this.logger.log(`Linked ${propertiesWithoutCategory.length} existing properties to master categories`);
     }
   }
 

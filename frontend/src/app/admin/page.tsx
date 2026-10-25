@@ -26,12 +26,42 @@ import {
   Phone,
   Key,
   FolderTree,
+  Tag,
+  Palette,
+  Eye,
+  CheckSquare,
 } from 'lucide-react';
-import { api, UserGroupItem, SystemUserItem } from '@/lib/api';
+import { api, UserGroupItem, SystemUserItem, PropertyCategoryItem } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import CustomSelect, { SelectOption } from '@/components/ui/CustomSelect';
 
-type AdminTab = 'moderation' | 'user-groups' | 'system-users';
+type AdminTab = 'moderation' | 'property-categories' | 'user-groups' | 'system-users';
+
+const COLOR_PRESETS = [
+  { name: 'Emerald', hex: '#10B981' },
+  { name: 'Royal Blue', hex: '#3B82F6' },
+  { name: 'Amber', hex: '#F59E0B' },
+  { name: 'Purple', hex: '#8B5CF6' },
+  { name: 'Orange', hex: '#F97316' },
+  { name: 'Teal', hex: '#14B8A6' },
+  { name: 'Cyan', hex: '#06B6D4' },
+  { name: 'Rose', hex: '#F43F5E' },
+  { name: 'Indigo', hex: '#6366F1' },
+  { name: 'Slate', hex: '#64748B' },
+];
+
+const ICON_OPTIONS = [
+  'Home',
+  'Building2',
+  'Compass',
+  'Briefcase',
+  'Landmark',
+  'Trees',
+  'Waves',
+  'Palmtree',
+  'Castle',
+  'Store',
+];
 
 export default function AdminPage() {
   const { user, isAdmin, isLoading: authLoading, openAuthModal } = useAuth();
@@ -43,6 +73,10 @@ export default function AdminPage() {
   const [stats, setStats] = useState<any | null>(null);
   const [pendingProperties, setPendingProperties] = useState<any[]>([]);
   const [pendingAuctions, setPendingAuctions] = useState<any[]>([]);
+
+  // Master Data: Property Categories
+  const [propertyCategories, setPropertyCategories] = useState<PropertyCategoryItem[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   // Master Data: User Groups
   const [userGroups, setUserGroups] = useState<UserGroupItem[]>([]);
@@ -56,6 +90,18 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Property Category Modals
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<PropertyCategoryItem | null>(null);
+  const [categoryFormCode, setCategoryFormCode] = useState('');
+  const [categoryFormName, setCategoryFormName] = useState('');
+  const [categoryFormDesc, setCategoryFormDesc] = useState('');
+  const [categoryFormColor, setCategoryFormColor] = useState('#10B981');
+  const [categoryFormIcon, setCategoryFormIcon] = useState('Home');
+  const [categoryFormOrder, setCategoryFormOrder] = useState(0);
+  const [categoryFormIsActive, setCategoryFormIsActive] = useState(true);
+  const [categoryFormSubmitting, setCategoryFormSubmitting] = useState(false);
 
   // User Group Modals
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -78,7 +124,7 @@ export default function AdminPage() {
 
   // Delete Confirm Modal
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    type: 'group' | 'user';
+    type: 'group' | 'user' | 'category';
     id: string;
     title: string;
   } | null>(null);
@@ -99,7 +145,12 @@ export default function AdminPage() {
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      await Promise.all([loadModerationData(), loadUserGroupsData(), loadSystemUsersData()]);
+      await Promise.all([
+        loadModerationData(),
+        loadPropertyCategoriesData(),
+        loadUserGroupsData(),
+        loadSystemUsersData(),
+      ]);
     } catch (err) {
       console.error('Failed to load initial admin data', err);
     } finally {
@@ -119,6 +170,18 @@ export default function AdminPage() {
       setPendingAuctions(auctionsRes || []);
     } catch (err) {
       console.error('Failed to load moderation data', err);
+    }
+  };
+
+  const loadPropertyCategoriesData = async () => {
+    setCategoriesLoading(true);
+    try {
+      const cats = await api.getAdminPropertyCategories();
+      setPropertyCategories(cats || []);
+    } catch (err: any) {
+      console.error('Failed to load property categories', err);
+    } finally {
+      setCategoriesLoading(false);
     }
   };
 
@@ -175,6 +238,77 @@ export default function AdminPage() {
     } catch (err: any) {
       alert(err.message || 'Auction approval failed');
     }
+  };
+
+  // Property Category Actions
+  const openCreateCategoryModal = () => {
+    setEditingCategory(null);
+    setCategoryFormCode('');
+    setCategoryFormName('');
+    setCategoryFormDesc('');
+    setCategoryFormColor('#10B981');
+    setCategoryFormIcon('Home');
+    setCategoryFormOrder(propertyCategories.length + 1);
+    setCategoryFormIsActive(true);
+    setErrorMessage(null);
+    setIsCategoryModalOpen(true);
+  };
+
+  const openEditCategoryModal = (cat: PropertyCategoryItem) => {
+    setEditingCategory(cat);
+    setCategoryFormCode(cat.code);
+    setCategoryFormName(cat.name);
+    setCategoryFormDesc(cat.description || '');
+    setCategoryFormColor(cat.color_code || '#10B981');
+    setCategoryFormIcon(cat.icon || 'Home');
+    setCategoryFormOrder(cat.display_order || 0);
+    setCategoryFormIsActive(cat.is_active);
+    setErrorMessage(null);
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleSavePropertyCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setCategoryFormSubmitting(true);
+    try {
+      if (editingCategory) {
+        await api.updateAdminPropertyCategory(editingCategory.id, {
+          name: categoryFormName.trim(),
+          description: categoryFormDesc.trim(),
+          color_code: categoryFormColor.trim(),
+          icon: categoryFormIcon.trim(),
+          display_order: Number(categoryFormOrder),
+          is_active: categoryFormIsActive,
+        });
+        showNotification(`Property category "${categoryFormName}" updated.`);
+      } else {
+        await api.createAdminPropertyCategory({
+          code: categoryFormCode.trim().toUpperCase(),
+          name: categoryFormName.trim(),
+          description: categoryFormDesc.trim(),
+          color_code: categoryFormColor.trim(),
+          icon: categoryFormIcon.trim(),
+          display_order: Number(categoryFormOrder),
+          is_active: categoryFormIsActive,
+        });
+        showNotification(`Property category "${categoryFormName}" created.`);
+      }
+      setIsCategoryModalOpen(false);
+      loadPropertyCategoriesData();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to save property category.');
+    } finally {
+      setCategoryFormSubmitting(false);
+    }
+  };
+
+  const confirmDeleteCategory = (cat: PropertyCategoryItem) => {
+    setDeleteConfirm({
+      type: 'category',
+      id: cat.id,
+      title: `Property Category "${cat.name}" (${cat.code})`,
+    });
   };
 
   // User Group Actions
@@ -316,7 +450,11 @@ export default function AdminPage() {
   const executeDelete = async () => {
     if (!deleteConfirm) return;
     try {
-      if (deleteConfirm.type === 'group') {
+      if (deleteConfirm.type === 'category') {
+        await api.deleteAdminPropertyCategory(deleteConfirm.id);
+        showNotification('Property category deleted.');
+        loadPropertyCategoriesData();
+      } else if (deleteConfirm.type === 'group') {
         await api.deleteAdminUserGroup(deleteConfirm.id);
         showNotification('User group deleted.');
         loadUserGroupsData();
@@ -375,15 +513,15 @@ export default function AdminPage() {
             LankaProperty Admin &amp; Operations Console
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
-            Manage listing moderation queues, configure Master Data User Groups, and provision internal operational staff accounts (Data Entry, Accountants, Agents).
+            Manage listing moderation queues, configure Master Data Property Categories with custom color codes, manage User Groups, and provision operational staff.
           </p>
         </div>
 
         {/* Quick Tabs in Header */}
-        <div className="flex bg-slate-800/80 p-1.5 rounded-2xl border border-slate-700/60 shadow-inner">
+        <div className="flex flex-wrap bg-slate-800/80 p-1.5 rounded-2xl border border-slate-700/60 shadow-inner gap-1">
           <button
             onClick={() => setActiveTab('moderation')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
               activeTab === 'moderation'
                 ? 'bg-purple-600 text-white shadow-sm'
                 : 'text-slate-300 hover:text-white'
@@ -397,8 +535,20 @@ export default function AdminPage() {
           </button>
 
           <button
+            onClick={() => setActiveTab('property-categories')}
+            className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              activeTab === 'property-categories'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Tag className="w-3.5 h-3.5" />
+            <span>Property Categories</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('user-groups')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
               activeTab === 'user-groups'
                 ? 'bg-purple-600 text-white shadow-sm'
                 : 'text-slate-300 hover:text-white'
@@ -410,7 +560,7 @@ export default function AdminPage() {
 
           <button
             onClick={() => setActiveTab('system-users')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
               activeTab === 'system-users'
                 ? 'bg-purple-600 text-white shadow-sm'
                 : 'text-slate-300 hover:text-white'
@@ -583,7 +733,185 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* TAB 2: MASTER DATA: USER GROUPS */}
+      {/* TAB 2: MASTER DATA: PROPERTY CATEGORIES */}
+      {activeTab === 'property-categories' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Header Action Row */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Tag className="w-5 h-5 text-emerald-600" />
+                <h2 className="text-lg font-black text-slate-900">Master Data: Property Categories</h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Configure real estate categories and their unique <strong>color codes</strong> and icons. These colors are fetched across the platform for search filters, listing cards, and map pins.
+              </p>
+            </div>
+
+            <button
+              onClick={openCreateCategoryModal}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 shrink-0 active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Category</span>
+            </button>
+          </div>
+
+          {/* Quick Category Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase">Total Categories</span>
+                <div className="text-2xl font-black text-slate-900">{propertyCategories.length}</div>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                <Tag className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-emerald-600 uppercase">Active Categories</span>
+                <div className="text-2xl font-black text-emerald-700">
+                  {propertyCategories.filter((c) => c.is_active).length}
+                </div>
+                <span className="text-[10px] text-slate-400">Available in search &amp; forms</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                <Palette className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-indigo-600 uppercase">Assigned Properties</span>
+                <div className="text-2xl font-black text-indigo-700">
+                  {propertyCategories.reduce((acc, c) => acc + (c.property_count || 0), 0)}
+                </div>
+                <span className="text-[10px] text-slate-400">Categorized active listings</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                <Building className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+
+          {/* Categories Table */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-black tracking-wider text-[10px]">
+                  <tr>
+                    <th className="px-6 py-4">Category &amp; Color Badge</th>
+                    <th className="px-6 py-4">Code Identifier</th>
+                    <th className="px-6 py-4">Color Swatch</th>
+                    <th className="px-6 py-4">Description</th>
+                    <th className="px-6 py-4">Assigned Listings</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {propertyCategories.map((cat) => (
+                    <tr key={cat.id} className="hover:bg-slate-50/70 transition">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs"
+                            style={{
+                              backgroundColor: `${cat.color_code || '#10B981'}15`,
+                              color: cat.color_code || '#10B981',
+                              borderColor: `${cat.color_code || '#10B981'}40`,
+                            }}
+                          >
+                            <span
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: cat.color_code || '#10B981' }}
+                            />
+                            <span>{cat.name}</span>
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4 font-mono font-bold text-slate-800 text-xs">
+                        <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          {cat.code}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-5 h-5 rounded-md border border-slate-300 shadow-inner inline-block"
+                            style={{ backgroundColor: cat.color_code }}
+                          />
+                          <span className="font-mono text-[11px] font-bold text-slate-700">
+                            {cat.color_code}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4 text-slate-500 max-w-xs">
+                        {cat.description || <span className="italic text-slate-300">No description</span>}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                          <Building className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{cat.property_count ?? 0}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {cat.is_active ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-400 border border-slate-200">
+                            Inactive
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openEditCategoryModal(cat)}
+                            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+                            title="Edit Category"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={() => confirmDeleteCategory(cat)}
+                            disabled={cat.property_count && cat.property_count > 0}
+                            className={`p-1.5 rounded-lg border transition ${
+                              cat.property_count && cat.property_count > 0
+                                ? 'border-slate-100 text-slate-300 cursor-not-allowed bg-slate-50'
+                                : 'border-red-200 text-red-600 hover:bg-red-50'
+                            }`}
+                            title={
+                              cat.property_count && cat.property_count > 0
+                                ? 'Cannot delete category with active assigned properties'
+                                : 'Delete Category'
+                            }
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: MASTER DATA: USER GROUPS */}
       {activeTab === 'user-groups' && (
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* Header Action Row */}
@@ -749,7 +1077,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* TAB 3: SYSTEM USERS */}
+      {/* TAB 4: SYSTEM USERS */}
       {activeTab === 'system-users' && (
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* Header Action Row */}
@@ -879,6 +1207,226 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: CREATE / EDIT PROPERTY CATEGORY                         */}
+      {/* ============================================================== */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 relative">
+            <button
+              onClick={() => setIsCategoryModalOpen(false)}
+              className="absolute top-5 right-5 p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Tag className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900">
+                  {editingCategory ? 'Edit Property Category' : 'Create Master Property Category'}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Select a distinctive color code and icon for this category
+                </p>
+              </div>
+            </div>
+
+            {errorMessage && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSavePropertyCategory} className="space-y-4">
+              {/* Category Live Preview Banner */}
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Live Badge Preview:</span>
+                <span
+                  className="px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs"
+                  style={{
+                    backgroundColor: `${categoryFormColor}15`,
+                    color: categoryFormColor,
+                    borderColor: `${categoryFormColor}40`,
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: categoryFormColor }} />
+                  <span>{categoryFormName || 'Category Name'}</span>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Category Code *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    disabled={!!editingCategory}
+                    value={categoryFormCode}
+                    onChange={(e) => setCategoryFormCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. BEACHFRONT or PENTHOUSE"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-mono font-bold uppercase tracking-wide focus:ring-2 focus:ring-emerald-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Display Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={categoryFormName}
+                    onChange={(e) => setCategoryFormName(e.target.value)}
+                    placeholder="e.g. Beachfront Villas"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Color Code Selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                  <span>Category Color Code *</span>
+                  <span className="font-mono text-[11px] text-slate-500">{categoryFormColor}</span>
+                </label>
+
+                {/* Preset Palette */}
+                <div className="flex flex-wrap gap-1.5 mb-2.5">
+                  {COLOR_PRESETS.map((preset) => (
+                    <button
+                      type="button"
+                      key={preset.hex}
+                      onClick={() => setCategoryFormColor(preset.hex)}
+                      className={`w-7 h-7 rounded-lg border-2 transition-all flex items-center justify-center ${
+                        categoryFormColor.toUpperCase() === preset.hex.toUpperCase()
+                          ? 'border-slate-900 scale-110 shadow-md ring-2 ring-slate-900/20'
+                          : 'border-white hover:scale-105 opacity-85 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: preset.hex }}
+                      title={preset.name}
+                    >
+                      {categoryFormColor.toUpperCase() === preset.hex.toUpperCase() && (
+                        <Check className="w-3.5 h-3.5 text-white drop-shadow" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Hex Picker Input */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      required
+                      value={categoryFormColor}
+                      onChange={(e) => setCategoryFormColor(e.target.value)}
+                      placeholder="#10B981"
+                      className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-300 font-mono text-xs font-bold uppercase focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                    <span
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border border-slate-300"
+                      style={{ backgroundColor: categoryFormColor }}
+                    />
+                  </div>
+
+                  <input
+                    type="color"
+                    value={categoryFormColor.startsWith('#') ? categoryFormColor : '#10B981'}
+                    onChange={(e) => setCategoryFormColor(e.target.value)}
+                    className="w-9 h-8 p-0.5 rounded-xl border border-slate-300 cursor-pointer bg-white"
+                    title="Choose custom color"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={categoryFormDesc}
+                  onChange={(e) => setCategoryFormDesc(e.target.value)}
+                  placeholder="e.g. Coastal holiday residences, private beach access parcels, and surf resorts."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Icon Identifier
+                  </label>
+                  <select
+                    value={categoryFormIcon}
+                    onChange={(e) => setCategoryFormIcon(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    {ICON_OPTIONS.map((icon) => (
+                      <option key={icon} value={icon}>
+                        {icon}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Display Order
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={categoryFormOrder}
+                    onChange={(e) => setCategoryFormOrder(Number(e.target.value))}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Active Toggle */}
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-xs text-slate-900 block">Category Active</span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                    When active, this category is shown in public search filters and posting wizard.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={categoryFormIsActive}
+                  onChange={(e) => setCategoryFormIsActive(e.target.checked)}
+                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={categoryFormSubmitting}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md disabled:opacity-50"
+                >
+                  {categoryFormSubmitting ? 'Saving...' : editingCategory ? 'Update Category' : 'Create Category'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

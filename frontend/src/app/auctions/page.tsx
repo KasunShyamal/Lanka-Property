@@ -401,8 +401,14 @@ export default function AuctionsPage() {
                 alt={activeAuction.property?.title}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-brand-dark/90 backdrop-blur-md text-white text-xs font-bold">
-                {activeAuction.property?.property_type?.replace('_', ' ')}
+              <div
+                className="absolute top-3 left-3 px-2.5 py-1 rounded-lg backdrop-blur-md text-white text-xs font-bold flex items-center gap-1.5 shadow-md border border-white/20"
+                style={{
+                  backgroundColor: `${activeAuction.property?.category?.color_code || '#0f172a'}E6`,
+                }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                <span>{activeAuction.property?.category?.name || activeAuction.property?.property_type?.replace('_', ' ')}</span>
               </div>
             </div>
 

@@ -152,4 +152,54 @@ export class AdminController {
     const currentAdminId = req.user?.id || req.user?.sub;
     return this.adminService.deleteSystemUser(id, currentAdminId);
   }
+
+  // ==============================================================
+  // MASTER DATA: PROPERTY CATEGORIES MANAGEMENT
+  // ==============================================================
+
+  @Get('property-categories')
+  @ApiOperation({ summary: 'Get all property categories with properties count' })
+  async getPropertyCategories() {
+    return this.adminService.getPropertyCategories();
+  }
+
+  @Post('property-categories')
+  @ApiOperation({ summary: 'Create a new master data property category with color code and icon' })
+  async createPropertyCategory(
+    @Body()
+    body: {
+      code: string;
+      name: string;
+      description?: string;
+      color_code?: string;
+      icon?: string;
+      display_order?: number;
+      is_active?: boolean;
+    },
+  ) {
+    return this.adminService.createPropertyCategory(body);
+  }
+
+  @Put('property-categories/:id')
+  @ApiOperation({ summary: 'Update a property category' })
+  async updatePropertyCategory(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string;
+      description?: string;
+      color_code?: string;
+      icon?: string;
+      display_order?: number;
+      is_active?: boolean;
+    },
+  ) {
+    return this.adminService.updatePropertyCategory(id, body);
+  }
+
+  @Delete('property-categories/:id')
+  @ApiOperation({ summary: 'Delete a property category' })
+  async deletePropertyCategory(@Param('id') id: string) {
+    return this.adminService.deletePropertyCategory(id);
+  }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   PlusCircle,
@@ -19,7 +19,7 @@ import {
   Tag,
   Lock,
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, PropertyCategoryItem } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import CustomSelect, { SelectOption } from '@/components/ui/CustomSelect';
 import dynamic from 'next/dynamic';
@@ -93,11 +93,13 @@ export default function PostPropertyPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<PropertyCategoryItem[]>([]);
 
   const [formData, setFormData] = useState({
     title: '',
     purpose: 'SALE',
     property_type: 'HOUSE',
+    category_id: '',
     price_lkr: '',
     land_perches: '',
     floor_sqft: '',
@@ -115,6 +117,34 @@ export default function PostPropertyPage() {
     imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200',
   });
 
+  useEffect(() => {
+    api.getPropertyCategories()
+      .then((cats) => {
+        if (cats && cats.length > 0) {
+          setCategories(cats);
+          setFormData((prev) => ({
+            ...prev,
+            property_type: prev.property_type || cats[0].code,
+            category_id: prev.category_id || cats[0].id,
+          }));
+        }
+      })
+      .catch((err) => console.warn('Could not load categories in post-property:', err));
+  }, []);
+
+  const categoryOptions: SelectOption[] = categories.map((cat) => ({
+    value: cat.code,
+    label: cat.name,
+    badge: cat.code,
+    description: cat.description || undefined,
+    icon: (
+      <span
+        className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-xs"
+        style={{ backgroundColor: cat.color_code }}
+      />
+    ),
+  }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLoggedIn) {
@@ -129,6 +159,7 @@ export default function PostPropertyPage() {
         title: formData.title,
         purpose: formData.purpose,
         property_type: formData.property_type,
+        category_id: formData.category_id || undefined,
         price_lkr: Number(formData.price_lkr),
         land_perches: formData.land_perches ? Number(formData.land_perches) : null,
         floor_sqft: formData.floor_sqft ? Number(formData.floor_sqft) : null,
@@ -255,8 +286,15 @@ export default function PostPropertyPage() {
                   <CustomSelect
                     label="Property Category"
                     value={formData.property_type}
-                    onChange={(val) => setFormData({ ...formData, property_type: val })}
-                    options={PROPERTY_TYPE_OPTIONS}
+                    onChange={(val) => {
+                      const matched = categories.find((c) => c.code === val);
+                      setFormData({
+                        ...formData,
+                        property_type: val,
+                        category_id: matched?.id || '',
+                      });
+                    }}
+                    options={categories.length > 0 ? categoryOptions : PROPERTY_TYPE_OPTIONS}
                   />
                 </div>
 

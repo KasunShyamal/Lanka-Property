@@ -7,10 +7,12 @@ import {
   ManyToOne,
   OneToMany,
   Index,
+  JoinColumn,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Auction } from './auction.entity';
 import { Inspection } from './inspection.entity';
+import { PropertyCategory } from './property-category.entity';
 
 export enum PropertyPurpose {
   SALE = 'SALE',
@@ -52,8 +54,15 @@ export class Property {
   @Column({ type: 'enum', enum: PropertyPurpose, default: PropertyPurpose.SALE })
   purpose: PropertyPurpose;
 
-  @Column({ type: 'enum', enum: PropertyType, default: PropertyType.HOUSE })
-  property_type: PropertyType;
+  @Column({ default: 'HOUSE' })
+  property_type: string;
+
+  @ManyToOne(() => PropertyCategory, (category) => category.properties, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'category_id' })
+  category?: PropertyCategory;
+
+  @Column({ nullable: true })
+  category_id?: string;
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   price_lkr: number;

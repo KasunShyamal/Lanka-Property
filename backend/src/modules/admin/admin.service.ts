@@ -4,8 +4,9 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Property, PropertyStatus } from '../../database/entities/property.entity';
 import { Auction, AuctionStatus } from '../../database/entities/auction.entity';
-import { User, UserRole, KycStatus } from '../../database/entities/user.entity';
+import { User, KycStatus, UserRole } from '../../database/entities/user.entity';
 import { UserGroup } from '../../database/entities/user-group.entity';
+import { PropertyCategory } from '../../database/entities/property-category.entity';
 
 @Injectable()
 export class AdminService {
@@ -18,6 +19,8 @@ export class AdminService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserGroup)
     private readonly groupRepo: Repository<UserGroup>,
+    @InjectRepository(PropertyCategory)
+    private readonly categoryRepo: Repository<PropertyCategory>,
   ) {}
 
   async getDashboardStats() {
@@ -300,5 +303,99 @@ export class AdminService {
 
     await this.userRepo.remove(user);
     return { success: true, message: `System user '${user.full_name}' deleted successfully` };
+  }
+
+  // ==========================================
+  // MASTER DATA: PROPERTY CATEGORIES
+  // ==========================================
+  async getPropertyCategories() {
+    const categories = await this.categoryRepo.find({
+      order: { display_order: 'ASC', name: 'ASC' },
+      relations: ['properties'],
+    });
+
+    return categories.map((cat) => ({
+      id: cat.id,
+      code: cat.code,
+      name: cat.name,
+      description: cat.description,
+      color_code: cat.color_code || '#10B981',
+      icon: cat.icon || 'Home',
+      is_active: cat.is_active,
+      display_order: cat.display_order,
+      property_count: cat.properties ? cat.properties.length : 0,
+      created_at: cat.created_at,
+      updated_at: cat.updated_at,
+    }));
+  }
+
+  async createPropertyCategory(dto: {
+    code: string;
+    name: string;
+    description?: string;
+    color_code?: string;
+    icon?: string;
+    display_order?: number;
+    is_active?: boolean;
+  }) {
+    const existing = await this.categoryRepo.findOne({
+      where: { code: dto.code.trim().toUpperCase() },
+    });
+    if (existing) {
+      throw new ConflictException(`Category code '${dto.code}' already exists`);
+    }
+
+    const category = this.categoryRepo.create({
+      code: dto.code.trim().toUpperCase(),
+      name: dto.name.trim(),
+      description: dto.description?.trim(),
+      color_code: dto.color_code?.trim() || '#10B981',
+      icon: dto.icon?.trim() || 'Home',
+      display_order: dto.display_order ?? 0,
+      is_active: dto.is_active ?? true,
+    });
+
+    return this.categoryRepo.save(category);
+  }
+
+  async updatePropertyCategory(
+    id: string,
+    dto: {
+      name?: string;
+      description?: string;
+      color_code?: string;
+      icon?: string;
+      display_order?: number;
+      is_active?: boolean;
+    },
+  ) {
+    const category = await this.categoryRepo.findOne({ where: { id } });
+    if (!category) throw new NotFoundException('Property category not found');
+
+    if (dto.name) category.name = dto.name.trim();
+    if (dto.description !== undefined) category.description = dto.description?.trim();
+    if (dto.color_code) category.color_code = dto.color_code.trim();
+    if (dto.icon) category.icon = dto.icon.trim();
+    if (dto.display_order !== undefined) category.display_order = dto.display_order;
+    if (dto.is_active !== undefined) category.is_active = dto.is_active;
+
+    return this.categoryRepo.save(category);
+  }
+
+  async deletePropertyCategory(id: string) {
+    const category = await this.categoryRepo.findOne({
+      where: { id },
+      relations: ['properties'],
+    });
+    if (!category) throw new NotFoundException('Property category not found');
+
+    if (category.properties && category.properties.length > 0) {
+      throw new BadRequestException(
+        `Cannot delete category '${category.name}' because ${category.properties.length} active property listing(s) are assigned to it. Please reassign them first.`,
+      );
+    }
+
+    await this.categoryRepo.remove(category);
+    return { success: true, message: `Category '${category.name}' deleted successfully` };
   }
 }
