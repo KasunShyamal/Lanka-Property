@@ -30,6 +30,7 @@ export class SeedService implements OnApplicationBootstrap {
     await this.seedUserGroups();
     await this.seedPropertyCategories();
     await this.seedData();
+    await this.seedDiverseProperties();
   }
 
   async seedUserGroups() {
@@ -578,5 +579,280 @@ export class SeedService implements OnApplicationBootstrap {
     await this.exchangeRepo.save(exchange1);
 
     this.logger.log('Sri Lanka real estate platform seed completed successfully.');
+  }
+
+  async seedDiverseProperties() {
+    const allCategories = await this.categoryRepo.find();
+    const catMap = new Map(allCategories.map(c => [c.code, c]));
+
+    // 1. Correct existing listings if they were miscategorized as HOUSE
+    const existingProperties = await this.propertyRepo.find();
+    for (const prop of existingProperties) {
+      let targetCode: string | null = null;
+      if (prop.title.includes('Ocean View Penthouse')) {
+        targetCode = 'APARTMENT';
+      } else if (prop.title.includes('Prime 15 Perch Residential Land')) {
+        targetCode = 'RESIDENTIAL_LAND';
+      } else if (prop.title.includes('Scenic Hillside Estate')) {
+        targetCode = 'AGRICULTURAL';
+      } else if (prop.title.includes('Colonial Heritage Villa') || prop.title.includes('Cinnamon Gardens')) {
+        targetCode = 'HOUSE';
+      }
+
+      if (targetCode && catMap.has(targetCode)) {
+        const cat = catMap.get(targetCode)!;
+        if (prop.category_id !== cat.id || prop.property_type !== targetCode) {
+          prop.property_type = targetCode;
+          prop.category_id = cat.id;
+          prop.category = cat;
+          await this.propertyRepo.save(prop);
+          this.logger.log(`Re-classified "${prop.title}" -> ${cat.name} (${cat.code})`);
+        }
+      }
+    }
+
+    // 2. Ensure default seller/agent exists to own new seed listings
+    const defaultOwner =
+      (await this.userRepo.findOne({ where: { email: 'agent@premierhomes.lk' } })) ||
+      (await this.userRepo.findOne({ where: { role: UserRole.SUPER_ADMIN } }));
+
+    if (!defaultOwner) return;
+
+    // 3. Insert diverse properties across all categories
+    const diverseListings = [
+      {
+        title: 'Prime 6-Storey Commercial Office Building — Duplication Road Colombo 03',
+        slug: 'prime-6-storey-commercial-office-building-colombo-03',
+        description: 'Premier freehold corporate building with 12,000 sqft usable floor space. High-speed passenger elevator, 150kVA standby backup generator, dedicated central air-conditioning, basement parking for 10 vehicles, and prime street frontage on Duplication Road Kollupitiya. High rental yield with multinational tenant interest.',
+        purpose: PropertyPurpose.SALE,
+        property_type: 'COMMERCIAL',
+        category_code: 'COMMERCIAL',
+        price_lkr: 420000000,
+        land_perches: 18.0,
+        floor_sqft: 12000,
+        price_per_perch: 15000000,
+        price_per_sqft: 35000,
+        bedrooms: 0,
+        bathrooms: 8,
+        parking_slots: 10,
+        latitude: 6.8992,
+        longitude: 79.8540,
+        address: 'Duplication Road, Kollupitiya',
+        city: 'Colombo 03',
+        district: 'Colombo',
+        province: 'Western',
+        features: ['Elevator / Lift', 'Standby Generator', 'Basement Parking', 'Central AC', '3-Phase Electricity', 'CCTV Security'],
+        images: [
+          'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200',
+          'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200',
+        ],
+        status: PropertyStatus.APPROVED,
+        is_exchange_eligible: false,
+        is_featured: true,
+        is_urgent: false,
+      },
+      {
+        title: 'Exclusive 120 Perch Golden Beachfront Land — Mirissa South Coast',
+        slug: 'exclusive-120-perch-golden-beachfront-land-mirissa',
+        description: 'Rare pristine beachfront land parcel with 180 feet of uninterrupted golden sand ocean frontage. Clear deeds with coastal conservation (CCD) clearance and tourist board approval for a luxury boutique hotel or wellness surf resort.',
+        purpose: PropertyPurpose.SALE,
+        property_type: 'BEACHFRONT',
+        category_code: 'BEACHFRONT',
+        price_lkr: 360000000,
+        land_perches: 120.0,
+        floor_sqft: 0,
+        price_per_perch: 3000000,
+        price_per_sqft: 0,
+        bedrooms: 0,
+        bathrooms: 0,
+        parking_slots: 0,
+        latitude: 5.9458,
+        longitude: 80.4578,
+        address: 'Pelena Beach Road, Mirissa',
+        city: 'Mirissa',
+        district: 'Matara',
+        province: 'Southern',
+        features: ['Direct Beach Access', 'Oceanfront Sunset Views', 'CCD Clearance', 'Clear Title Deeds', 'Electricity & Water On-Site'],
+        images: [
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200',
+          'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1200',
+        ],
+        status: PropertyStatus.APPROVED,
+        is_exchange_eligible: true,
+        exchange_preferences: 'Will consider partial exchange for prime commercial land or property in Colombo.',
+        is_featured: true,
+        is_urgent: true,
+      },
+      {
+        title: 'Boutique Coastal Surf Villa — Thalpe Beach Galle',
+        slug: 'boutique-coastal-surf-villa-thalpe-beach-galle',
+        description: 'Idyllic 4-bedroom oceanfront tropical villa situated on the exclusive Thalpe golden mile strip. Features an infinity plunge pool opening onto private reef-protected swimming beach, open-concept living pavilion, and lush coconut grove.',
+        purpose: PropertyPurpose.SALE,
+        property_type: 'BEACHFRONT',
+        category_code: 'BEACHFRONT',
+        price_lkr: 210000000,
+        land_perches: 28.0,
+        floor_sqft: 3800,
+        price_per_perch: 7500000,
+        price_per_sqft: 55263,
+        bedrooms: 4,
+        bathrooms: 5,
+        parking_slots: 2,
+        latitude: 6.0025,
+        longitude: 80.2785,
+        address: 'Matara Road, Thalpe',
+        city: 'Galle',
+        district: 'Galle',
+        province: 'Southern',
+        features: ['Private Beach Access', 'Infinity Pool', 'Ocean Views', 'Fully Furnished', 'Commercial Tourism License'],
+        images: [
+          'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=1200',
+          'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200',
+        ],
+        status: PropertyStatus.APPROVED,
+        is_exchange_eligible: false,
+        is_featured: true,
+        is_urgent: false,
+      },
+      {
+        title: 'High-Visibility 40 Perch Commercial Plot — Baseline Road Colombo 09',
+        slug: 'high-visibility-40-perch-commercial-plot-baseline-road',
+        description: 'Rectangular commercial land parcel with massive 80-foot road frontage on Baseline Road. Ideal for multinational corporate showroom, automotive hub, or logistics center. 40ft container turning access and CEB heavy industrial power line.',
+        purpose: PropertyPurpose.SALE,
+        property_type: 'COMMERCIAL_LAND',
+        category_code: 'COMMERCIAL_LAND',
+        price_lkr: 180000000,
+        land_perches: 40.0,
+        floor_sqft: 0,
+        price_per_perch: 4500000,
+        price_per_sqft: 0,
+        bedrooms: 0,
+        bathrooms: 0,
+        parking_slots: 0,
+        latitude: 6.9275,
+        longitude: 79.8812,
+        address: 'Baseline Road, Dematagoda',
+        city: 'Colombo 09',
+        district: 'Colombo',
+        province: 'Western',
+        features: ['80ft Main Road Frontage', 'Container Accessible', 'Commercial Zone A', 'Heavy 3-Phase Power', 'Clear Bank Title'],
+        images: [
+          'https://images.unsplash.com/photo-1524813686514-a57563d77d66?w=1200',
+        ],
+        status: PropertyStatus.APPROVED,
+        is_exchange_eligible: false,
+        is_featured: false,
+        is_urgent: false,
+      },
+      {
+        title: 'Tri-Zen Metro Twin Tower Luxury 2BR — Union Place Colombo 02',
+        slug: 'tri-zen-metro-twin-tower-luxury-2br-union-place-colombo-02',
+        description: 'Modern smart-home connected 2-bedroom residence in central Colombo 02. Floor-to-ceiling double-glazed windows, European fixtures, dual swimming pools, badminton court, rooftop jogging track, and minutes from Cinnamon Life and CBD.',
+        purpose: PropertyPurpose.SALE,
+        property_type: 'APARTMENT',
+        category_code: 'APARTMENT',
+        price_lkr: 68000000,
+        land_perches: 0,
+        floor_sqft: 1050,
+        price_per_perch: 0,
+        price_per_sqft: 64761,
+        bedrooms: 2,
+        bathrooms: 2,
+        parking_slots: 1,
+        latitude: 6.9215,
+        longitude: 79.8590,
+        address: 'Union Place, Colombo 02',
+        city: 'Colombo 02',
+        district: 'Colombo',
+        province: 'Western',
+        features: ['City Skyline Views', 'Smart Home System', 'Rooftop Pools', 'Gym & Clubhouse', '24h Concierge', 'Backup Power'],
+        images: [
+          'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200',
+          'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200',
+        ],
+        status: PropertyStatus.APPROVED,
+        is_exchange_eligible: true,
+        exchange_preferences: 'Open to exchange for residential land in Battaramulla or Thalawathugoda with cash adjustment.',
+        is_featured: false,
+        is_urgent: true,
+      },
+      {
+        title: '25-Acre Mature Export Tea & Cinnamon Estate — Elpitiya Galle',
+        slug: '25-acre-mature-export-tea-cinnamon-estate-elpitiya',
+        description: 'High-yielding agro-estate with 15 acres of mature VP tea and 10 acres of export-grade Ceylon cinnamon. Natural mountain stream, spring water wells, factory processing shed, internal gravel vehicle roads, and colonial planter bungalow.',
+        purpose: PropertyPurpose.SALE,
+        property_type: 'AGRICULTURAL',
+        category_code: 'AGRICULTURAL',
+        price_lkr: 115000000,
+        land_perches: 4000.0,
+        floor_sqft: 3200,
+        price_per_perch: 28750,
+        price_per_sqft: 35937,
+        bedrooms: 3,
+        bathrooms: 2,
+        parking_slots: 4,
+        latitude: 6.2550,
+        longitude: 80.1420,
+        address: 'Kahaduwa Road, Elpitiya',
+        city: 'Galle',
+        district: 'Galle',
+        province: 'Southern',
+        features: ['Yielding Tea Crop', 'Export Cinnamon', 'Water Springs & Stream', 'Planter Bungalow', 'Motorable Internal Roads'],
+        images: [
+          'https://images.unsplash.com/photo-1544984243-ec57ea16fe25?w=1200',
+          'https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=1200',
+        ],
+        status: PropertyStatus.APPROVED,
+        is_exchange_eligible: false,
+        is_featured: false,
+        is_urgent: false,
+      },
+      {
+        title: 'Panoramic Hilltop Residential Land 20 Perches — Heerassagala Kandy',
+        slug: 'panoramic-hilltop-residential-land-20-perches-heerassagala-kandy',
+        description: 'Elevated highland building block with breathtaking 180-degree amphitheater views of the Hantana mountain range and Kandy valley. Engineered stone retaining walls already constructed. 20ft carpeted access road from Heerassagala junction.',
+        purpose: PropertyPurpose.SALE,
+        property_type: 'RESIDENTIAL_LAND',
+        category_code: 'RESIDENTIAL_LAND',
+        price_lkr: 38000000,
+        land_perches: 20.0,
+        floor_sqft: 0,
+        price_per_perch: 1900000,
+        price_per_sqft: 0,
+        bedrooms: 0,
+        bathrooms: 0,
+        parking_slots: 0,
+        latitude: 7.2705,
+        longitude: 80.6120,
+        address: 'Heerassagala Road, Kandy',
+        city: 'Kandy',
+        district: 'Kandy',
+        province: 'Central',
+        features: ['Panoramic Mountain Views', 'Retaining Walls Built', '20ft Carpeted Access', 'CEB Electricity & Water', 'Clear Title Deeds'],
+        images: [
+          'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200',
+        ],
+        status: PropertyStatus.APPROVED,
+        is_exchange_eligible: false,
+        is_featured: false,
+        is_urgent: false,
+      },
+    ];
+
+    for (const item of diverseListings) {
+      const existing = await this.propertyRepo.findOne({ where: { slug: item.slug } });
+      if (!existing) {
+        const cat = catMap.get(item.category_code);
+        const { category_code, ...propData } = item;
+        const newProp = this.propertyRepo.create({
+          ...propData,
+          category_id: cat ? cat.id : undefined,
+          category: cat,
+          owner: defaultOwner,
+        });
+        await this.propertyRepo.save(newProp);
+        this.logger.log(`Seeded diverse property listing: ${item.title} (${item.property_type})`);
+      }
+    }
   }
 }

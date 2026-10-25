@@ -657,13 +657,6 @@ export default function MapExplorer() {
                       alt={prop.title}
                       className="w-full h-full object-cover"
                     />
-                    {/* Category pill on thumbnail */}
-                    <span
-                      className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-white text-[9px] font-black uppercase tracking-wider shadow-xs"
-                      style={{ backgroundColor: catColor }}
-                    >
-                      {catName}
-                    </span>
                     {prop.is_exchange_eligible && (
                       <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[9px] font-bold">
                         Swap
