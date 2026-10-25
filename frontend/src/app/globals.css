@@ -95,3 +95,19 @@ body {
   animation: marker-bounce 1.5s ease-in-out infinite;
   z-index: 9999 !important;
 }
+
+/* Clean styling for Leaflet hover tooltip card */
+.leaflet-tooltip.lp-map-hover-card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 16px !important;
+}
+.leaflet-tooltip-top.lp-map-hover-card:before,
+.leaflet-tooltip-bottom.lp-map-hover-card:before,
+.leaflet-tooltip-left.lp-map-hover-card:before,
+.leaflet-tooltip-right.lp-map-hover-card:before {
+  display: none !important;
+}
+
