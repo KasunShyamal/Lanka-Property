@@ -201,29 +201,33 @@ export default function Navbar() {
               </span>
             </Link>
 
-            <Link
-              href="/inspections"
-              className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${
-                pathname === '/inspections'
-                  ? 'bg-white text-emerald-700 shadow-sm shadow-slate-200/50 scale-[1.02]'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5 text-sky-600" />
-              <span>Inspections</span>
-            </Link>
+            {isLoggedIn && (
+              <>
+                <Link
+                  href="/inspections"
+                  className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${
+                    pathname === '/inspections'
+                      ? 'bg-white text-emerald-700 shadow-sm shadow-slate-200/50 scale-[1.02]'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Inspections</span>
+                </Link>
 
-            <Link
-              href="/exchanges"
-              className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${
-                pathname === '/exchanges'
-                  ? 'bg-white text-emerald-700 shadow-sm shadow-slate-200/50 scale-[1.02]'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-              }`}
-            >
-              <Repeat className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Swaps</span>
-            </Link>
+                <Link
+                  href="/exchanges"
+                  className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 whitespace-nowrap ${
+                    pathname === '/exchanges'
+                      ? 'bg-white text-emerald-700 shadow-sm shadow-slate-200/50 scale-[1.02]'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <Repeat className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Swaps</span>
+                </Link>
+              </>
+            )}
 
             {/* Admin link in center capsule ONLY if admin */}
             {isAdmin && (
@@ -456,7 +460,14 @@ export default function Navbar() {
         {mobileMenuOpen && (
           <div className="xl:hidden border-t border-slate-200 bg-white/98 backdrop-blur-xl px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top-2 duration-200">
             <div className="grid grid-cols-1 gap-1">
-              {navLinks.map((link) => {
+              {navLinks
+                .filter((link) => {
+                  if ((link.href === '/inspections' || link.href === '/exchanges') && !isLoggedIn) {
+                    return false;
+                  }
+                  return true;
+                })
+                .map((link) => {
                 const Icon = link.icon;
                 const isActive = pathname === link.href;
                 return (

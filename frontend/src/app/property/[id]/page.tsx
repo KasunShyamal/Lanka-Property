@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import CustomSelect from '@/components/ui/CustomSelect';
+import { useAuth } from '@/context/AuthContext';
 
 const PropertyMiniMap = dynamic(() => import('@/components/PropertyMiniMap'), {
   ssr: false,
@@ -33,6 +34,7 @@ const PropertyMiniMap = dynamic(() => import('@/components/PropertyMiniMap'), {
 
 export default function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
+  const { user, isLoggedIn, openAuthModal } = useAuth();
   const [property, setProperty] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
@@ -74,19 +76,32 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     }
   };
 
+  const handleOpenInspectionModal = () => {
+    if (!isLoggedIn) {
+      openAuthModal('login', 'Please sign in to schedule an in-person property inspection.');
+      return;
+    }
+    setShowInspectionModal(true);
+  };
+
+  const handleOpenExchangeModal = () => {
+    if (!isLoggedIn) {
+      openAuthModal('login', 'Please sign in to propose a verified property exchange.');
+      return;
+    }
+    setShowExchangeModal(true);
+  };
+
   const handleInspectionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!property) return;
 
-    try {
-      if (!localStorage.getItem('lp_token')) {
-        const loginRes = await api.login({
-          email: 'rohan.de.silva@outlook.com',
-          password: 'Admin@12345',
-        });
-        localStorage.setItem('lp_token', loginRes.token);
-      }
+    if (!isLoggedIn) {
+      openAuthModal('login', 'Please sign in to schedule an in-person property inspection.');
+      return;
+    }
 
+    try {
       await api.createInspection({
         property_id: property.id,
         scheduled_at: new Date(inspectionDate).toISOString(),
@@ -107,15 +122,12 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     e.preventDefault();
     if (!property) return;
 
-    try {
-      if (!localStorage.getItem('lp_token')) {
-        const loginRes = await api.login({
-          email: 'chamari.senanayake@yahoo.com',
-          password: 'Admin@12345',
-        });
-        localStorage.setItem('lp_token', loginRes.token);
-      }
+    if (!isLoggedIn) {
+      openAuthModal('login', 'Please sign in to propose a property exchange.');
+      return;
+    }
 
+    try {
       await api.createExchange({
         offered_property_id: selectedOfferProp,
         target_property_id: property.id,
@@ -397,8 +409,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
             {/* In-Person Inspection Button */}
             <button
               type="button"
-              onClick={() => setShowInspectionModal(true)}
-              className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition active:scale-98 text-sm"
+              onClick={handleOpenInspectionModal}
+              className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition active:scale-98 text-sm cursor-pointer"
             >
               <Calendar className="w-4 h-4 text-emerald-400" />
               <span>Schedule In-Person Inspection</span>
@@ -408,8 +420,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
             {property.is_exchange_eligible && (
               <button
                 type="button"
-                onClick={() => setShowExchangeModal(true)}
-                className="w-full inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition active:scale-98 text-sm"
+                onClick={handleOpenExchangeModal}
+                className="w-full inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition active:scale-98 text-sm cursor-pointer"
               >
                 <Repeat className="w-4 h-4" />
                 <span>Propose Property Swap / Exchange</span>

@@ -11,29 +11,29 @@ import {
   User,
   ArrowRight,
   ExternalLink,
+  Lock,
+  PlusCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function InspectionsPage() {
+  const { user, isLoggedIn, isLoading: authLoading, openAuthModal } = useAuth();
   const [inspections, setInspections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<string | null>(null);
 
   useEffect(() => {
-    loadInspections();
-  }, []);
+    if (isLoggedIn) {
+      loadInspections();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [isLoggedIn, authLoading]);
 
   const loadInspections = async () => {
     setLoading(true);
     try {
-      if (!localStorage.getItem('lp_token')) {
-        const loginRes = await api.login({
-          email: 'malik.fernando@gmail.com',
-          password: 'Admin@12345',
-        });
-        localStorage.setItem('lp_token', loginRes.token);
-      }
-
       const data = await api.getInspections();
       setInspections(data || []);
     } catch (err) {
@@ -56,6 +56,35 @@ export default function InspectionsPage() {
       alert(err.message || 'Failed to update inspection');
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-sky-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="max-w-md mx-auto my-20 p-8 bg-white rounded-3xl border border-slate-200 shadow-xl text-center">
+        <div className="w-16 h-16 rounded-2xl bg-sky-50 text-sky-600 mx-auto flex items-center justify-center mb-4 border border-sky-100 shadow-inner">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Sign In Required</h2>
+        <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+          Please sign in to view and manage your scheduled in-person property inspections and viewing appointments.
+        </p>
+        <button
+          onClick={() => openAuthModal('login', 'Please sign in to view your property inspections.')}
+          className="w-full py-3 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+        >
+          <Calendar className="w-4 h-4" />
+          <span>Sign In to View Inspections</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

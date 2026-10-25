@@ -11,29 +11,28 @@ import {
   HelpCircle,
   MapPin,
   DollarSign,
+  Lock,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ExchangesPage() {
+  const { user, isLoggedIn, isLoading: authLoading, openAuthModal } = useAuth();
   const [exchanges, setExchanges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    loadExchanges();
-  }, []);
+    if (isLoggedIn) {
+      loadExchanges();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [isLoggedIn, authLoading]);
 
   const loadExchanges = async () => {
     setLoading(true);
     try {
-      if (!localStorage.getItem('lp_token')) {
-        const loginRes = await api.login({
-          email: 'malik.fernando@gmail.com',
-          password: 'Admin@12345',
-        });
-        localStorage.setItem('lp_token', loginRes.token);
-      }
-
       const data = await api.getExchanges();
       setExchanges(data || []);
     } catch (err) {
@@ -56,6 +55,35 @@ export default function ExchangesPage() {
       alert(err.message || 'Failed to update exchange status');
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="max-w-md mx-auto my-20 p-8 bg-white rounded-3xl border border-slate-200 shadow-xl text-center">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center mb-4 border border-indigo-100 shadow-inner">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Sign In Required</h2>
+        <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+          Please sign in to view and manage your Sri Lanka deed-compliant property swap and exchange proposals.
+        </p>
+        <button
+          onClick={() => openAuthModal('login', 'Please sign in to view your property swap proposals.')}
+          className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+        >
+          <Repeat className="w-4 h-4" />
+          <span>Sign In to View Swaps</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
