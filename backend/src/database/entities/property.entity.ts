@@ -127,6 +127,15 @@ export class Property {
   @Column({ default: false })
   is_urgent: boolean;
 
+  @Column({ type: 'jsonb', nullable: true })
+  pending_update?: Record<string, any>;
+
+  @Column({ default: false })
+  has_pending_update: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  moderation_notes?: string;
+
   @ManyToOne(() => User, (user) => user.properties, { eager: true, onDelete: 'CASCADE' })
   owner: User;
 

@@ -21,6 +21,14 @@ export class PropertiesController {
     return this.propertiesService.findAll(query);
   }
 
+  @Get('my-properties')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all property listings posted by the authenticated user' })
+  async getMyProperties(@Req() req: any) {
+    return this.propertiesService.findByOwner(req.user.id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get single property by UUID or slug' })
   async findOne(@Param('id') id: string) {

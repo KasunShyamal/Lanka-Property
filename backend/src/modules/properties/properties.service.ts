@@ -179,27 +179,68 @@ export class PropertiesService {
     return this.propertyRepo.save(property);
   }
 
+  async findByOwner(userId: string) {
+    return this.propertyRepo.find({
+      where: { owner: { id: userId } },
+      relations: ['category', 'owner'],
+      order: { updated_at: 'DESC' },
+    });
+  }
+
   async update(id: string, user: User, data: any) {
     const property = await this.findOne(id);
     if (property.owner.id !== user.id && user.role !== UserRole.SUPER_ADMIN && user.role !== UserRole.MODERATOR) {
       throw new ForbiddenException('You do not have permission to edit this property');
     }
 
-    if (data.category_id || data.property_type) {
-      let category = null;
-      if (data.category_id) {
-        category = await this.categoryRepo.findOne({ where: { id: data.category_id } });
-      } else if (data.property_type) {
-        category = await this.categoryRepo.findOne({ where: { code: data.property_type } });
-      }
+    const price = data.price_lkr !== undefined ? Number(data.price_lkr) : Number(property.price_lkr);
+    const land_perches = data.land_perches !== undefined ? (data.land_perches ? Number(data.land_perches) : null) : property.land_perches;
+    const floor_sqft = data.floor_sqft !== undefined ? (data.floor_sqft ? Number(data.floor_sqft) : null) : property.floor_sqft;
+
+    const price_per_perch = land_perches && land_perches > 0 ? Math.round(price / land_perches) : null;
+    const price_per_sqft = floor_sqft && floor_sqft > 0 ? Math.round(price / floor_sqft) : null;
+
+    let category = null;
+    if (data.category_id) {
+      category = await this.categoryRepo.findOne({ where: { id: data.category_id } });
+    } else if (data.property_type) {
+      category = await this.categoryRepo.findOne({ where: { code: data.property_type } });
+    }
+
+    const isPrivilegedAdmin = user.role === UserRole.SUPER_ADMIN || user.role === UserRole.MODERATOR;
+
+    if (isPrivilegedAdmin) {
       if (category) {
         property.category = category;
         property.category_id = category.id;
         property.property_type = category.code;
       }
+      Object.assign(property, {
+        ...data,
+        price_lkr: price,
+        land_perches,
+        floor_sqft,
+        price_per_perch,
+        price_per_sqft,
+      });
+      return this.propertyRepo.save(property);
     }
 
-    Object.assign(property, data);
+    // Owner edit: store in pending_update for admin comparison and moderation approval
+    property.pending_update = {
+      ...data,
+      price_lkr: price,
+      land_perches,
+      floor_sqft,
+      price_per_perch,
+      price_per_sqft,
+      category_id: category?.id || property.category_id,
+      category_name: category?.name || property.category?.name,
+      property_type: category?.code || data.property_type || property.property_type,
+      submitted_at: new Date().toISOString(),
+    };
+    property.has_pending_update = true;
+
     return this.propertyRepo.save(property);
   }
 
