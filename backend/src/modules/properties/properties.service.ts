@@ -72,12 +72,18 @@ export class PropertiesService {
       qb.andWhere('LOWER(property.city) = LOWER(:city)', { city: query.city });
     }
 
-    if (query.min_price) {
-      qb.andWhere('property.price_lkr >= :min_price', { min_price: query.min_price });
+    if (query.min_price !== undefined && query.min_price !== null && String(query.min_price).trim() !== '') {
+      const minVal = Number(query.min_price);
+      if (!isNaN(minVal)) {
+        qb.andWhere('property.price_lkr >= :min_price', { min_price: minVal });
+      }
     }
 
-    if (query.max_price) {
-      qb.andWhere('property.price_lkr <= :max_price', { max_price: query.max_price });
+    if (query.max_price !== undefined && query.max_price !== null && String(query.max_price).trim() !== '') {
+      const maxVal = Number(query.max_price);
+      if (!isNaN(maxVal)) {
+        qb.andWhere('property.price_lkr <= :max_price', { max_price: maxVal });
+      }
     }
 
     if (query.bedrooms) {

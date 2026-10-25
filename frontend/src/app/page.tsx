@@ -21,9 +21,73 @@ import {
   Trees,
   Landmark,
   Layers,
+  Wallet,
+  RotateCcw,
 } from 'lucide-react';
 import { api, PropertyCategoryItem } from '@/lib/api';
 import CustomSelect, { SelectOption } from '@/components/ui/CustomSelect';
+
+const DISTRICT_OPTIONS: SelectOption[] = [
+  { value: '', label: 'All Districts', icon: <MapPin className="w-4 h-4 text-slate-400" /> },
+  { value: 'Colombo', label: 'Colombo', badge: 'Western' },
+  { value: 'Gampaha', label: 'Gampaha', badge: 'Western' },
+  { value: 'Kalutara', label: 'Kalutara', badge: 'Western' },
+  { value: 'Kandy', label: 'Kandy', badge: 'Central' },
+  { value: 'Matale', label: 'Matale', badge: 'Central' },
+  { value: 'Nuwara Eliya', label: 'Nuwara Eliya', badge: 'Central' },
+  { value: 'Galle', label: 'Galle', badge: 'Southern' },
+  { value: 'Matara', label: 'Matara', badge: 'Southern' },
+  { value: 'Hambantota', label: 'Hambantota', badge: 'Southern' },
+  { value: 'Jaffna', label: 'Jaffna', badge: 'Northern' },
+  { value: 'Kilinochchi', label: 'Kilinochchi', badge: 'Northern' },
+  { value: 'Mannar', label: 'Mannar', badge: 'Northern' },
+  { value: 'Vavuniya', label: 'Vavuniya', badge: 'Northern' },
+  { value: 'Mullaitivu', label: 'Mullaitivu', badge: 'Northern' },
+  { value: 'Batticaloa', label: 'Batticaloa', badge: 'Eastern' },
+  { value: 'Ampara', label: 'Ampara', badge: 'Eastern' },
+  { value: 'Trincomalee', label: 'Trincomalee', badge: 'Eastern' },
+  { value: 'Kurunegala', label: 'Kurunegala', badge: 'North Western' },
+  { value: 'Puttalam', label: 'Puttalam', badge: 'North Western' },
+  { value: 'Anuradhapura', label: 'Anuradhapura', badge: 'North Central' },
+  { value: 'Polonnaruwa', label: 'Polonnaruwa', badge: 'North Central' },
+  { value: 'Badulla', label: 'Badulla', badge: 'Uva' },
+  { value: 'Monaragala', label: 'Monaragala', badge: 'Uva' },
+  { value: 'Ratnapura', label: 'Ratnapura', badge: 'Sabaragamuwa' },
+  { value: 'Kegalle', label: 'Kegalle', badge: 'Sabaragamuwa' },
+];
+
+function parseBudgetInput(val: string, purpose?: 'SALE' | 'RENT'): number | undefined {
+  if (!val || !val.trim()) return undefined;
+  const clean = val.replace(/,/g, '').trim().toLowerCase();
+  if (clean.endsWith('m')) {
+    const num = parseFloat(clean.slice(0, -1));
+    return isNaN(num) ? undefined : num * 1_000_000;
+  }
+  if (clean.endsWith('k')) {
+    const num = parseFloat(clean.slice(0, -1));
+    return isNaN(num) ? undefined : num * 1_000;
+  }
+  const num = parseFloat(clean);
+  if (isNaN(num)) return undefined;
+  // If user enters e.g. "25" for SALE properties, treat as Millions LKR
+  if (purpose === 'SALE' && num > 0 && num < 1000) {
+    return num * 1_000_000;
+  }
+  return num;
+}
+
+function formatBudgetDisplay(num: number | undefined): string | null {
+  if (num === undefined || isNaN(num) || num <= 0) return null;
+  if (num >= 1_000_000) {
+    const millions = num / 1_000_000;
+    return `LKR ${millions % 1 === 0 ? millions.toFixed(0) : millions.toFixed(1)}M`;
+  }
+  if (num >= 1_000) {
+    const thousands = num / 1_000;
+    return `LKR ${thousands % 1 === 0 ? thousands.toFixed(0) : thousands.toFixed(1)}k`;
+  }
+  return `LKR ${num.toLocaleString()}`;
+}
 
 const SEARCH_PROPERTY_TYPES: SelectOption[] = [
   { value: '', label: 'All Property Types', icon: <Layers className="w-4 h-4 text-slate-400" /> },
@@ -43,7 +107,10 @@ export default function HomePage() {
   const [purpose, setPurpose] = useState<'SALE' | 'RENT'>('SALE');
   const [search, setSearch] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
+  const [selectedDistrict, setSelectedDistrict] = useState('');
   const [propertyType, setPropertyType] = useState('');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
   const [categories, setCategories] = useState<PropertyCategoryItem[]>([]);
 
   useEffect(() => {
@@ -71,17 +138,23 @@ export default function HomePage() {
 
   useEffect(() => {
     loadData();
-  }, [purpose, selectedCity, propertyType]);
+  }, [purpose, selectedCity, selectedDistrict, propertyType]);
 
   const loadData = async () => {
     setLoading(true);
     try {
+      const parsedMin = parseBudgetInput(minPrice, purpose);
+      const parsedMax = parseBudgetInput(maxPrice, purpose);
+
       const [propsRes, auctionsRes] = await Promise.all([
         api.getProperties({
           purpose,
-          city: selectedCity,
+          district: selectedDistrict || undefined,
+          city: selectedCity || undefined,
           property_type: propertyType || undefined,
           search: search || undefined,
+          min_price: parsedMin,
+          max_price: parsedMax,
         }),
         api.getAuctions(),
       ]);
@@ -162,35 +235,117 @@ export default function HomePage() {
             </div>
 
             {/* Inputs Form */}
-            <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-12 gap-3 relative z-30">
-              <div className="sm:col-span-5 relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                <input
-                  type="text"
-                  placeholder="Location, neighborhood, or keyword (e.g. Cinnamon Gardens, Nawala)..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                />
+            <form onSubmit={handleSearchSubmit} className="space-y-3 relative z-30">
+              {/* Row 1: Keyword, District, and Property Type */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div className="md:col-span-5 relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="text"
+                    placeholder="Location, neighborhood, or keyword (e.g. Cinnamon Gardens, Nawala)..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div className="md:col-span-3">
+                  <CustomSelect
+                    value={selectedDistrict}
+                    onChange={(val) => {
+                      setSelectedDistrict(val);
+                      setSelectedCity('');
+                    }}
+                    options={DISTRICT_OPTIONS}
+                    placeholder="All Districts"
+                  />
+                </div>
+
+                <div className="md:col-span-4">
+                  <CustomSelect
+                    value={propertyType}
+                    onChange={(val) => setPropertyType(val)}
+                    options={categories.length > 0 ? categoryOptions : SEARCH_PROPERTY_TYPES}
+                    placeholder="All Property Types"
+                  />
+                </div>
               </div>
 
-              <div className="sm:col-span-4">
-                <CustomSelect
-                  value={propertyType}
-                  onChange={(val) => setPropertyType(val)}
-                  options={categories.length > 0 ? categoryOptions : SEARCH_PROPERTY_TYPES}
-                  placeholder="All Property Types"
-                />
-              </div>
+              {/* Row 2: Budget (From - To) & Search Actions */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center pt-1">
+                {/* Budget Range Section */}
+                <div className="md:col-span-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 shrink-0">
+                    <Wallet className="w-4 h-4 text-emerald-600" />
+                    <span>Budget (LKR):</span>
+                  </div>
 
-              <div className="sm:col-span-3 flex gap-2">
-                <button
-                  type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 active:scale-95 text-sm"
-                >
-                  <Search className="w-4 h-4" />
-                  Search
-                </button>
+                  <div className="flex-1 flex items-center gap-2">
+                    {/* From Budget */}
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder={purpose === 'SALE' ? 'From (e.g. 10M)' : 'From (e.g. 50k)'}
+                        value={minPrice}
+                        onChange={(e) => setMinPrice(e.target.value)}
+                        className="w-full pl-3 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      {formatBudgetDisplay(parseBudgetInput(minPrice, purpose)) && (
+                        <span className="absolute right-2 top-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded pointer-events-none border border-emerald-200">
+                          {formatBudgetDisplay(parseBudgetInput(minPrice, purpose))}
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="text-xs text-slate-400 font-bold shrink-0">to</span>
+
+                    {/* To Budget */}
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder={purpose === 'SALE' ? 'To (e.g. 80M)' : 'To (e.g. 300k)'}
+                        value={maxPrice}
+                        onChange={(e) => setMaxPrice(e.target.value)}
+                        className="w-full pl-3 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      {formatBudgetDisplay(parseBudgetInput(maxPrice, purpose)) && (
+                        <span className="absolute right-2 top-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded pointer-events-none border border-emerald-200">
+                          {formatBudgetDisplay(parseBudgetInput(maxPrice, purpose))}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions: Search Button + Reset Button */}
+                <div className="md:col-span-4 flex items-center gap-2">
+                  <button
+                    type="submit"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 active:scale-95 text-sm"
+                  >
+                    <Search className="w-4 h-4" />
+                    <span>Search</span>
+                  </button>
+
+                  {(search || selectedDistrict || propertyType || minPrice || maxPrice || selectedCity) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch('');
+                        setSelectedDistrict('');
+                        setSelectedCity('');
+                        setPropertyType('');
+                        setMinPrice('');
+                        setMaxPrice('');
+                      }}
+                      title="Reset all filters"
+                      className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition flex items-center justify-center text-xs font-bold shrink-0"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline ml-1">Reset</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </form>
 
@@ -198,19 +353,22 @@ export default function HomePage() {
             <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
               <span className="text-slate-400 font-medium">Popular:</span>
               {[
-                { name: 'All Locations', value: '' },
-                { name: 'Colombo 07', value: 'Colombo 07' },
-                { name: 'Colombo 03', value: 'Colombo 03' },
-                { name: 'Rajagiriya', value: 'Rajagiriya' },
-                { name: 'Galle Fort', value: 'Galle Fort' },
-                { name: 'Kandy', value: 'Kandy' },
+                { name: 'All Locations', value: '', district: '' },
+                { name: 'Colombo 07', value: 'Colombo 07', district: 'Colombo' },
+                { name: 'Colombo 03', value: 'Colombo 03', district: 'Colombo' },
+                { name: 'Rajagiriya', value: 'Rajagiriya', district: 'Colombo' },
+                { name: 'Galle Fort', value: 'Galle Fort', district: 'Galle' },
+                { name: 'Kandy', value: 'Kandy', district: 'Kandy' },
               ].map((loc) => (
                 <button
                   key={loc.name}
                   type="button"
-                  onClick={() => setSelectedCity(loc.value)}
+                  onClick={() => {
+                    setSelectedCity(loc.value);
+                    if (loc.district !== undefined) setSelectedDistrict(loc.district);
+                  }}
                   className={`px-2.5 py-1 rounded-md transition ${
-                    selectedCity === loc.value
+                    selectedCity === loc.value && (!loc.district || selectedDistrict === loc.district)
                       ? 'bg-emerald-100 text-emerald-800 font-bold'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
@@ -305,7 +463,10 @@ export default function HomePage() {
               onClick={() => {
                 setSearch('');
                 setSelectedCity('');
+                setSelectedDistrict('');
                 setPropertyType('');
+                setMinPrice('');
+                setMaxPrice('');
               }}
               className="text-xs font-bold text-emerald-600 underline"
             >
