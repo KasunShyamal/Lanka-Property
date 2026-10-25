@@ -19,7 +19,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: { sub: string; email: string }) {
-    const user = await this.userRepo.findOne({ where: { id: payload.sub } });
+    const user = await this.userRepo.findOne({
+      where: { id: payload.sub },
+      relations: ['group'],
+    });
     if (!user) {
       throw new UnauthorizedException('User no longer exists or invalid token');
     }

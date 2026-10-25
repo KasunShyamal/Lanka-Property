@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User, UserRole, KycStatus } from '../database/entities/user.entity';
+import { UserGroup } from '../database/entities/user-group.entity';
 import { Property, PropertyPurpose, PropertyType, PropertyStatus } from '../database/entities/property.entity';
 import { Auction, AuctionStatus } from '../database/entities/auction.entity';
 import { Bid, BidStatus } from '../database/entities/bid.entity';
@@ -15,6 +16,7 @@ export class SeedService implements OnApplicationBootstrap {
 
   constructor(
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(UserGroup) private readonly groupRepo: Repository<UserGroup>,
     @InjectRepository(Property) private readonly propertyRepo: Repository<Property>,
     @InjectRepository(Auction) private readonly auctionRepo: Repository<Auction>,
     @InjectRepository(Bid) private readonly bidRepo: Repository<Bid>,
@@ -23,7 +25,147 @@ export class SeedService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
+    await this.seedUserGroups();
     await this.seedData();
+  }
+
+  async seedUserGroups() {
+    const defaultGroups = [
+      {
+        code: 'BUYER',
+        name: 'Buyer',
+        description: 'Browse, bid & schedule in-person inspections',
+        is_public_registration: true,
+        is_system_group: true,
+      },
+      {
+        code: 'SELLER',
+        name: 'Seller',
+        description: 'List, exchange & auction verified properties',
+        is_public_registration: true,
+        is_system_group: true,
+      },
+      {
+        code: 'AGENT',
+        name: 'Agent',
+        description: 'Licensed realtor & brokerage manager',
+        is_public_registration: true,
+        is_system_group: true,
+      },
+      {
+        code: 'SUPER_ADMIN',
+        name: 'Admin',
+        description: 'Platform administrator with full governance & master data management',
+        is_public_registration: false,
+        is_system_group: true,
+      },
+      {
+        code: 'DATA_ENTRY',
+        name: 'Data Entry Person',
+        description: 'Listing cataloging and property specifications data entry',
+        is_public_registration: false,
+        is_system_group: false,
+      },
+      {
+        code: 'ACCOUNTANT',
+        name: 'Accountant',
+        description: 'Auction escrow reconciliation, stamp duty & financial ledger',
+        is_public_registration: false,
+        is_system_group: false,
+      },
+    ];
+
+    const groupMap: Record<string, UserGroup> = {};
+
+    for (const item of defaultGroups) {
+      let g = await this.groupRepo.findOne({ where: { code: item.code } });
+      if (!g) {
+        g = this.groupRepo.create(item);
+        g = await this.groupRepo.save(g);
+        this.logger.log(`Seeded Master Data User Group: ${item.name} (${item.code})`);
+      }
+      groupMap[item.code] = g;
+    }
+
+    // Ensure known seed accounts have their authentic roles and groups assigned
+    const adminAccounts = await this.userRepo.find({
+      where: [
+        { email: 'admin@lankaproperty.lk' },
+        { email: 'admin@cargils.com' },
+      ],
+    });
+    for (const a of adminAccounts) {
+      if (groupMap['SUPER_ADMIN']) {
+        a.role = 'SUPER_ADMIN';
+        a.group_id = groupMap['SUPER_ADMIN'].id;
+        a.group = groupMap['SUPER_ADMIN'];
+        await this.userRepo.save(a);
+      }
+    }
+
+    const agentAcc = await this.userRepo.findOne({ where: { email: 'agent@premierhomes.lk' } });
+    if (agentAcc && groupMap['AGENT']) {
+      agentAcc.role = 'AGENT';
+      agentAcc.group_id = groupMap['AGENT'].id;
+      agentAcc.group = groupMap['AGENT'];
+      agentAcc.is_verified_agent = true;
+      await this.userRepo.save(agentAcc);
+    }
+
+    const sellerAcc = await this.userRepo.findOne({ where: { email: 'malik.fernando@gmail.com' } });
+    if (sellerAcc && groupMap['SELLER']) {
+      sellerAcc.role = 'SELLER';
+      sellerAcc.group_id = groupMap['SELLER'].id;
+      sellerAcc.group = groupMap['SELLER'];
+      await this.userRepo.save(sellerAcc);
+    }
+
+    // Link any remaining users without group_id
+    const unlinkedUsers = await this.userRepo.find({ where: { group_id: null as any } });
+    for (const u of unlinkedUsers) {
+      const matchingGroup = groupMap[u.role] || groupMap['BUYER'];
+      if (matchingGroup) {
+        u.group_id = matchingGroup.id;
+        u.group = matchingGroup;
+        await this.userRepo.save(u);
+      }
+    }
+
+    // Seed sample staff system users (Data Entry & Accountant) if not exists
+    const defaultPasswordHash = await bcrypt.hash('Admin@12345', 10);
+    const existingDataEntry = await this.userRepo.findOne({ where: { email: 'dataentry@lankaproperty.lk' } });
+    if (!existingDataEntry && groupMap['DATA_ENTRY']) {
+      const dataEntryUser = this.userRepo.create({
+        email: 'dataentry@lankaproperty.lk',
+        password_hash: defaultPasswordHash,
+        full_name: 'Kamal Data Entry',
+        phone: '+94 77 444 5566',
+        role: 'DATA_ENTRY',
+        group_id: groupMap['DATA_ENTRY'].id,
+        group: groupMap['DATA_ENTRY'],
+        kyc_status: KycStatus.VERIFIED,
+        avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200',
+      });
+      await this.userRepo.save(dataEntryUser);
+      this.logger.log('Seeded sample System User: Kamal Data Entry (dataentry@lankaproperty.lk)');
+    }
+
+    const existingAccountant = await this.userRepo.findOne({ where: { email: 'accountant@lankaproperty.lk' } });
+    if (!existingAccountant && groupMap['ACCOUNTANT']) {
+      const accountantUser = this.userRepo.create({
+        email: 'accountant@lankaproperty.lk',
+        password_hash: defaultPasswordHash,
+        full_name: 'Nimal Accountant',
+        phone: '+94 71 555 6677',
+        role: 'ACCOUNTANT',
+        group_id: groupMap['ACCOUNTANT'].id,
+        group: groupMap['ACCOUNTANT'],
+        kyc_status: KycStatus.VERIFIED,
+        avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200',
+      });
+      await this.userRepo.save(accountantUser);
+      this.logger.log('Seeded sample System User: Nimal Accountant (accountant@lankaproperty.lk)');
+    }
   }
 
   async seedData() {

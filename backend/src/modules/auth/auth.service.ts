@@ -4,12 +4,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User, UserRole, KycStatus } from '../../database/entities/user.entity';
+import { UserGroup } from '../../database/entities/user-group.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(UserGroup)
+    private readonly groupRepo: Repository<UserGroup>,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -18,13 +21,22 @@ export class AuthService {
     password: string;
     full_name: string;
     phone?: string;
-    role?: UserRole;
+    role?: string;
     nic_passport_no?: string;
     agency_name?: string;
   }) {
     const existing = await this.userRepo.findOne({ where: { email: dto.email.toLowerCase() } });
     if (existing) {
       throw new ConflictException('Email already registered');
+    }
+
+    // Resolve group from master data (ensure public registration only)
+    const targetCode = (dto.role || 'BUYER').toUpperCase();
+    let group = await this.groupRepo.findOne({
+      where: { code: targetCode, is_public_registration: true },
+    });
+    if (!group) {
+      group = await this.groupRepo.findOne({ where: { code: 'BUYER' } });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -35,7 +47,9 @@ export class AuthService {
       password_hash,
       full_name: dto.full_name,
       phone: dto.phone,
-      role: dto.role || UserRole.BUYER,
+      role: group ? group.code : 'BUYER',
+      group_id: group ? group.id : undefined,
+      group: group || undefined,
       kyc_status: dto.nic_passport_no ? KycStatus.PENDING : KycStatus.NONE,
       nic_passport_no: dto.nic_passport_no,
       agency_name: dto.agency_name,
@@ -51,6 +65,7 @@ export class AuthService {
         email: saved.email,
         full_name: saved.full_name,
         role: saved.role,
+        group: group ? { id: group.id, name: group.name, code: group.code } : null,
         kyc_status: saved.kyc_status,
         is_verified_agent: saved.is_verified_agent,
       },
@@ -61,6 +76,7 @@ export class AuthService {
   async login(dto: { email: string; password: string }) {
     const user = await this.userRepo
       .createQueryBuilder('user')
+      .leftJoinAndSelect('user.group', 'group')
       .addSelect('user.password_hash')
       .where('user.email = :email', { email: dto.email.toLowerCase() })
       .getOne();
@@ -82,6 +98,7 @@ export class AuthService {
         email: user.email,
         full_name: user.full_name,
         role: user.role,
+        group: user.group ? { id: user.group.id, name: user.group.name, code: user.group.code } : null,
         kyc_status: user.kyc_status,
         is_verified_agent: user.is_verified_agent,
         agency_name: user.agency_name,
@@ -96,7 +113,7 @@ export class AuthService {
     full_name?: string;
     avatar_url?: string;
     credential?: string;
-    role?: UserRole;
+    role?: any;
     agency_name?: string;
   }) {
     let email = dto.email;
@@ -122,8 +139,20 @@ export class AuthService {
       throw new UnauthorizedException('Missing valid Google account email');
     }
 
-    let user = await this.userRepo.findOne({ where: { email: email.toLowerCase() } });
+    let user = await this.userRepo.findOne({
+      where: { email: email.toLowerCase() },
+      relations: ['group'],
+    });
+
     if (!user) {
+      const targetCode = (dto.role || 'BUYER').toString().toUpperCase();
+      let group = await this.groupRepo.findOne({
+        where: { code: targetCode, is_public_registration: true },
+      });
+      if (!group) {
+        group = await this.groupRepo.findOne({ where: { code: 'BUYER' } });
+      }
+
       const salt = await bcrypt.genSalt(10);
       const password_hash = await bcrypt.hash(Math.random().toString(36) + 'GoogleAuth#2026', salt);
       user = this.userRepo.create({
@@ -131,14 +160,24 @@ export class AuthService {
         password_hash,
         full_name: full_name || 'Google User',
         avatar_url: avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200',
-        role: dto.role || UserRole.BUYER,
+        role: group ? group.code : 'BUYER',
+        group_id: group ? group.id : undefined,
+        group: group || undefined,
         agency_name: dto.role === UserRole.AGENT ? dto.agency_name : undefined,
         kyc_status: KycStatus.VERIFIED,
         is_verified_agent: false,
       });
       user = await this.userRepo.save(user);
     } else if (dto.role && user.role !== dto.role && user.role !== UserRole.SUPER_ADMIN) {
-      user.role = dto.role;
+      const targetCode = dto.role.toString().toUpperCase();
+      const group = await this.groupRepo.findOne({ where: { code: targetCode } });
+      if (group) {
+        user.role = group.code;
+        user.group_id = group.id;
+        user.group = group;
+      } else {
+        user.role = dto.role;
+      }
       if (dto.agency_name) user.agency_name = dto.agency_name;
       user = await this.userRepo.save(user);
     }
@@ -150,6 +189,7 @@ export class AuthService {
         email: user.email,
         full_name: user.full_name,
         role: user.role,
+        group: user.group ? { id: user.group.id, name: user.group.name, code: user.group.code } : null,
         kyc_status: user.kyc_status,
         is_verified_agent: user.is_verified_agent,
         agency_name: user.agency_name,
@@ -164,6 +204,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      group_id: user.group_id,
     };
     return this.jwtService.sign(payload);
   }

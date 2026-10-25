@@ -1,7 +1,17 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Property } from './property.entity';
 import { Bid } from './bid.entity';
 import { Inspection } from './inspection.entity';
+import { UserGroup } from './user-group.entity';
 
 export enum UserRole {
   SUPER_ADMIN = 'SUPER_ADMIN',
@@ -35,8 +45,15 @@ export class User {
   @Column({ nullable: true })
   phone: string;
 
-  @Column({ type: 'enum', enum: UserRole, default: UserRole.BUYER })
-  role: UserRole;
+  @Column({ type: 'varchar', default: UserRole.BUYER })
+  role: string;
+
+  @Column({ nullable: true })
+  group_id?: string;
+
+  @ManyToOne(() => UserGroup, (group) => group.users, { nullable: true, eager: true })
+  @JoinColumn({ name: 'group_id' })
+  group?: UserGroup;
 
   @Column({ type: 'enum', enum: KycStatus, default: KycStatus.NONE })
   kyc_status: KycStatus;

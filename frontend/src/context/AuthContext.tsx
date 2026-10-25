@@ -8,7 +8,12 @@ export interface UserProfile {
   id: string;
   email: string;
   full_name: string;
-  role: 'SUPER_ADMIN' | 'MODERATOR' | 'AGENT' | 'SELLER' | 'BUYER';
+  role: string;
+  group?: {
+    id: string;
+    code: string;
+    name: string;
+  };
   kyc_status?: string;
   is_verified_agent?: boolean;
   avatar_url?: string;
@@ -27,7 +32,7 @@ interface AuthContextType {
   openAuthModal: (tab?: 'login' | 'register', message?: string) => void;
   closeAuthModal: () => void;
   login: (credentials: { email: string; password: string }) => Promise<{ success: boolean; error?: string; user?: UserProfile }>;
-  loginWithGoogle: (data: { credential?: string; email?: string; full_name?: string; avatar_url?: string; role?: 'BUYER' | 'SELLER' | 'AGENT'; agency_name?: string }) => Promise<{ success: boolean; error?: string; user?: UserProfile }>;
+  loginWithGoogle: (data: { credential?: string; email?: string; full_name?: string; avatar_url?: string; role?: string; agency_name?: string }) => Promise<{ success: boolean; error?: string; user?: UserProfile }>;
   register: (data: any) => Promise<{ success: boolean; error?: string; user?: UserProfile }>;
   logout: () => void;
 }
@@ -116,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email?: string;
     full_name?: string;
     avatar_url?: string;
-    role?: 'BUYER' | 'SELLER' | 'AGENT';
+    role?: string;
     agency_name?: string;
   }) => {
     try {
@@ -152,7 +157,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/');
   };
 
-  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MODERATOR';
+  const isAdmin =
+    user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'MODERATOR' ||
+    user?.group?.code === 'SUPER_ADMIN' ||
+    user?.group?.code === 'ADMIN';
 
   return (
     <AuthContext.Provider
